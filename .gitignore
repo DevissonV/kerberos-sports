@@ -14,3 +14,5 @@ resources/temp/*
 !resources/temp/KSS-T01B-architecture-correction.md
 !resources/temp/KSS-004B-deployment-readiness.md
 !resources/temp/KSS-ARCH-NEST-handoff.md
+!resources/temp/KSS-DATA-GATE-01-handoff.md
+!resources/temp/KSS-PIPELINE-PROTOCOL-01-handoff.md

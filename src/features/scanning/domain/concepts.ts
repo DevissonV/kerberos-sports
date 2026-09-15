@@ -10,6 +10,15 @@ export interface Fixture {
   id: string;
   sport: ScanSport;
   league: string;
+  /**
+   * Id numérico de liga del proveedor (API-Football `league.id`). Opcional para no
+   * romper construcciones de dominio ajenas al filtro de protocolo (p. ej. tests de
+   * `matching.ts`, que no dependen de la cohorte); ausente = no elegible fail-closed
+   * (ver `domain/protocol.ts`).
+   */
+  leagueId?: number;
+  /** País de la liga del proveedor (API-Football `league.country`). Mismo criterio que `leagueId`. */
+  country?: string;
   homeTeam: string;
   awayTeam: string;
   /** Kickoff en UTC. */

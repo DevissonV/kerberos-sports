@@ -8,8 +8,13 @@ aquí y no duplicar estas reglas.
 
 Kerberos Sports es un proyecto personal de investigación de apuestas deportivas en modo
 PAPER ONLY (sin dinero real, sin brokers, sin casas de apuestas). Alcance inicial: `FOOTBALL`
-(único) y mercado candidato `MATCH_WINNER` (no congelado). Todo se valida con simulación y
-métricas antes de considerar cualquier ejecución real.
+(único). Cohorte congelada `KSS-V1-C01` (fuente autoritativa: `resources/temp/KSS-PROTOCOL-01.md`):
+English Premier League única (`league.id=39`, `country=England`, nunca por nombre de liga),
+mercado `OVER_UNDER_2_5`, ventana de decisión `T-6h`, bookmaker primario Pinnacle con fallback
+Bet365. `MATCH_WINNER` ya no es mercado candidato de esta cohorte. QUANT (Poisson) y Luna están
+planeados pero NO implementados: el pipeline actual no tiene modelo propio (`edge=0`,
+`NO_BET_PIPELINE_ONLY` fijo). Todo se valida con simulación y métricas antes de considerar
+cualquier ejecución real.
 
 **PAPER FIRST es una restricción del producto:** ningún agente debe introducir ejecución real,
 integraciones pagas, infraestructura de deploy ni persistencia remota sin una instrucción
@@ -50,6 +55,10 @@ corregir la implementación o actualizar la documentación.
   que `bot-kerberos`): un puerto se justifica cuando hay más de un caso de uso real (ej. paper vs.
   futura ejecución real, o más de un proveedor de datos); no crear una interfaz/puerto nuevo "por si
   acaso" para una pieza trivial con un solo consumidor y sin sustituto previsto.
+  `ResultsProvider` (`src/features/scanning/ports/resultsProvider.ts`) es el contrato mínimo de
+  settlement: existe SIN adapter ni registro en `scanning.module.ts` todavía (implementar el
+  adapter es trabajo de una tarea futura, no ceremonial: el puerto ya tiene un consumidor
+  previsto).
 - Las funciones puras (`calculateEdge`, `calculateStake`, `calculateMetrics`) no requieren puertos
   ni interfaces.
 - Los adapters que Nest instancia vía `useFactory` (constructor manual con `new`, patrón usado en

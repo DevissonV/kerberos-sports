@@ -1,7 +1,9 @@
 /**
  * Adapter HTTP para OddsPapi (oddspapi.io v4).
  * - /v4/fixtures?sportId=10&from&to  -> eventos próximos con nombres (1 request).
- * - /v4/odds-by-tournaments         -> cuotas batch por torneo (1 request por corrida).
+ * - /v4/odds-by-tournaments         -> cuotas batch por torneo (1 request por bookmaker
+ *   por batch de torneos; Bet365 solo se consulta si Pinnacle deja fixtures sin par
+ *   completo, ver `overUnderPairs`).
  * NO asumimos nombres de markets: detectamos la línea 2.5 por el patrón real del
  * proveedor ("bookmakerOutcomeId": "2.5/over" | "2.5/under") y validamos todo.
  */
@@ -10,15 +12,17 @@ import type { BookmakerQuote, OddsPair } from '../domain/concepts';
 import type { OddsEvent } from '../domain/matching';
 import type { OddsProvider } from '../ports/oddsProvider';
 import { OddsProviderError } from '../ports/oddsProvider';
+import { FALLBACK_BOOKMAKER, PRIMARY_BOOKMAKER } from '../domain/protocol';
 
 /** sportId de Soccer en OddsPapi (docs oficiales). */
 const SOCCER_SPORT_ID = 10;
 /**
- * Bookmaker usado en cuotas batch: la API exige exactamente uno por request.
- * 1xbet expone outcome ids numericos internos (sin patron "2.5/over|under");
- * pinnacle usa el formato legible que detecta `detectOverUnder25`.
+ * Bookmaker primario de la cohorte KSS-V1-C01: la API exige exactamente uno por
+ * request, así que se consulta en un batch separado del fallback. 1xbet expone
+ * outcome ids numericos internos (sin patron "2.5/over|under"); pinnacle usa el
+ * formato legible que detecta `detectOverUnder25`.
  */
-const ODDS_BOOKMAKER = 'pinnacle';
+const ODDS_BOOKMAKER = PRIMARY_BOOKMAKER;
 /** Maximo de torneos por request de cuotas (la API rechaza mas de 5 con HTTP 400). */
 const TOURNAMENT_BATCH_SIZE = 5;
 /** Cooldown documentado del endpoint odds-by-tournaments. */
@@ -205,6 +209,34 @@ export class OddsPapiAdapter implements OddsProvider {
     return parseOddsEvents(payload);
   }
 
+  private async fetchPairsForBookmaker(
+    tournamentIds: readonly number[],
+    bookmaker: string,
+  ): Promise<OddsPair[]> {
+    // La API exige exactamente un bookmaker por request; el pacing global hace el cooldown.
+    const tournamentBatches: number[][] = [];
+    for (let i = 0; i < tournamentIds.length; i += TOURNAMENT_BATCH_SIZE) {
+      tournamentBatches.push(tournamentIds.slice(i, i + TOURNAMENT_BATCH_SIZE));
+    }
+    const pairs: OddsPair[] = [];
+    for (const batch of tournamentBatches) {
+      const payload = await this.getJson('/v4/odds-by-tournaments', {
+        tournamentIds: batch.join(','),
+        bookmaker,
+        oddsFormat: 'decimal',
+      });
+      const fixtures = assertArray(payload);
+      pairs.push(...fixtures.flatMap((fixture) => extractOddsPairs(fixture)));
+    }
+    return pairs;
+  }
+
+  /**
+   * Par O/U 2.5 por fixture: Pinnacle primero; si un fixture no tiene par
+   * Pinnacle completo y válido, se intenta Bet365 SOLO para ese fixture (nunca
+   * se mezcla Over de un bookmaker con Under de otro: cada `OddsPair` ya viene
+   * de un único bookmaker por construcción de `extractOddsPairs`).
+   */
   async overUnderPairs(events: readonly OddsEvent[]): Promise<OddsPair[]> {
     if (events.length === 0) return [];
     const tournamentIds = [
@@ -216,22 +248,23 @@ export class OddsPapiAdapter implements OddsProvider {
     ];
     if (tournamentIds.length === 0) return [];
 
-    // La API exige exactamente un bookmaker por request; el pacing global hace el cooldown.
-    const tournamentBatches: number[][] = [];
-    for (let i = 0; i < tournamentIds.length; i += TOURNAMENT_BATCH_SIZE) {
-      tournamentBatches.push(tournamentIds.slice(i, i + TOURNAMENT_BATCH_SIZE));
+    const primaryPairs = await this.fetchPairsForBookmaker(tournamentIds, PRIMARY_BOOKMAKER);
+    const fixturesWithPrimary = new Set(primaryPairs.map((pair) => pair.fixtureId));
+    const eventIds = new Set(events.map((event) => event.id));
+    const eventsMissingPrimary = eventIds.size - fixturesWithPrimary.size;
+    if (eventsMissingPrimary <= 0) return primaryPairs;
+
+    let fallbackPairs: OddsPair[] = [];
+    try {
+      const allFallbackPairs = await this.fetchPairsForBookmaker(tournamentIds, FALLBACK_BOOKMAKER);
+      fallbackPairs = allFallbackPairs.filter(
+        (pair) => eventIds.has(pair.fixtureId) && !fixturesWithPrimary.has(pair.fixtureId),
+      );
+    } catch {
+      // Fallback best-effort: si Bet365 falla, el scan continua solo con Pinnacle.
+      fallbackPairs = [];
     }
-    const pairs: OddsPair[] = [];
-    for (const batch of tournamentBatches) {
-      const payload = await this.getJson('/v4/odds-by-tournaments', {
-        tournamentIds: batch.join(','),
-        bookmaker: ODDS_BOOKMAKER,
-        oddsFormat: 'decimal',
-      });
-      const fixtures = assertArray(payload);
-      pairs.push(...fixtures.flatMap((fixture) => extractOddsPairs(fixture)));
-    }
-    return pairs;
+    return [...primaryPairs, ...fallbackPairs];
   }
 }
 

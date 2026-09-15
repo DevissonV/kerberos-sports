@@ -1,7 +1,12 @@
 /**
  * Adapter HTTP para API-Football (api-football.com, v3).
  * Traduce el JSON del proveedor al modelo interno. Consume `/fixtures?date=…`
- * por dia de una ventana corta: el plan Free no permite el parámetro `next`.
+ * por dia de una ventana corta: el plan Free no permite el parámetro `next`, ni
+ * `league=`+`season=` para la temporada vigente (bloqueado fuera de 2022-2024,
+ * verificado con la API real). El filtro de universo por liga/país de la cohorte
+ * (`leagueId===39 && country==='England'`) NO se aplica aquí: se traduce el JSON
+ * crudo tal cual (incluye `leagueId`/`country`) y `domain/protocol.ts` decide
+ * elegibilidad en `runScan`, para mantener el adapter como traducción pura.
  */
 
 import type { Fixture } from '../domain/concepts';
@@ -12,7 +17,7 @@ import { FixturesProviderError } from '../ports/fixturesProvider';
 export interface ApiFootballFixtureResponse {
   response: Array<{
     fixture: { id: number; date: string; status: { short: string } };
-    league: { name: string };
+    league: { id: number; name: string; country: string };
     teams: { home: { name: string }; away: { name: string } };
   }>;
 }
@@ -34,6 +39,8 @@ export function parseFixtures(payload: unknown): Fixture[] {
     id: String(entry.fixture.id),
     sport: 'FOOTBALL',
     league: entry.league.name,
+    leagueId: entry.league.id,
+    country: entry.league.country,
     homeTeam: entry.teams.home.name,
     awayTeam: entry.teams.away.name,
     kickoffAt: new Date(entry.fixture.date),

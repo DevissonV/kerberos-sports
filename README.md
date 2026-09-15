@@ -9,9 +9,14 @@ aquí no se toca nada del stack de trading: sin Binance, sin futures, sin exchan
 
 - **Sport:** `FOOTBALL` (único).
 - **Modo:** PAPER ONLY. Nada se ejecuta contra dinero real ni contra brokers/casas de apuestas.
-- **Mercado candidato (NO congelado):** `MATCH_WINNER`.
-- **Entidades conceptuales** (declaradas como tipos, sin lógica todavía):
-  `Fixture`, `Market`, `OddsQuote`, `Prediction`, `PaperBet`, `BankrollSnapshot`.
+- **Cohorte congelada `KSS-V1-C01`** (ver `resources/temp/KSS-PROTOCOL-01.md`, fuente
+  autoritativa del protocolo): English Premier League única (`league.id=39`, `country=England`
+  — nunca por nombre de liga), mercado `OVER_UNDER_2_5`, ventana de decisión `T-6h`,
+  bookmaker primario `Pinnacle` con fallback `Bet365`. `MATCH_WINNER` queda descartado como
+  mercado de esta cohorte (se mencionaba antes como "candidato, no congelado"; ya no aplica).
+- **QUANT (Poisson) y Luna:** planeados, NO implementados todavía. El pipeline actual no tiene
+  modelo propio: `edge` es siempre `0` y la decisión es fija `NO_BET_PIPELINE_ONLY`
+  (`runScan`/`ScanCandidate` en `application/scanPipeline.ts`).
 
 ## Qué hay hoy
 
@@ -59,10 +64,14 @@ src/
     telegramSmoke.ts                # smoke de Telegram
   features/                        # cada feature es dueña de sus entidades
     scanning/
-      domain/                      # Fixture, OddsPair, matching, normalización de nombres
-      ports/                       # FixturesProvider, OddsProvider (+ tokens Nest)
-      adapters/                    # ApiFootballFixturesAdapter, OddsPapiAdapter
-      application/                 # runScan (pipeline puro), ScanningService (orquesta puertos)
+      domain/                      # Fixture, OddsPair, matching, normalización, protocol
+                                    # (cohorte KSS-V1-C01), decisionWindow (T-6h)
+      ports/                       # FixturesProvider, OddsProvider (+ tokens Nest);
+                                    # ResultsProvider: contrato mínimo SIN adapter todavía
+      adapters/                    # ApiFootballFixturesAdapter, OddsPapiAdapter (Pinnacle
+                                    # primario + fallback Bet365)
+      application/                 # runScan (pipeline puro: filtro de protocolo + ventana
+                                    # T-6h + matching + de-vig), ScanningService (orquesta puertos)
       scanning.module.ts
     opportunities/
       domain/                      # Sport, Fixture, Market, OddsQuote, Prediction, gate, marketMath

@@ -1,5 +1,6 @@
 /** Salida legible del scanner en stdout. */
 
+import { PRIMARY_BOOKMAKER, PROTOCOL_COHORT_ID } from '../domain/protocol';
 import type { ScanReport } from './scanPipeline';
 
 function formatPercent(value: number): string {
@@ -10,9 +11,22 @@ export function renderScanReport(report: ScanReport): string {
   const lines: string[] = [];
   lines.push('KERBEROS SPORTS SCAN');
   lines.push('');
-  lines.push(`Fixtures fetched: ${report.fixturesFetched}`);
-  lines.push(`Fixtures matched with odds: ${report.fixturesMatched}`);
-  lines.push(`Candidates normalized: ${report.candidatesNormalized}`);
+  lines.push(`COHORT: ${PROTOCOL_COHORT_ID}`);
+  lines.push(`RAW_FIXTURES: ${report.fixturesFetched}`);
+  lines.push(`PREMIER_LEAGUE_FIXTURES: ${report.fixturesEligible}`);
+  lines.push(`EXCLUDED_BY_PROTOCOL: ${report.excludedByProtocol}`);
+  lines.push(`MATCHED: ${report.fixturesMatched}`);
+  lines.push(`O_U_2_5_CANDIDATES: ${report.candidatesNormalized}`);
+  lines.push(`TEMPORAL_ELIGIBLE: ${report.temporalEligible}`);
+  lines.push(
+    `TEMPORAL_EXCLUDED: TOO_EARLY=${report.temporalExcluded.tooEarly} MISSED_WINDOW=${report.temporalExcluded.missedWindow} STARTED=${report.temporalExcluded.started}`,
+  );
+  lines.push(
+    `PINNACLE: ${report.candidates.filter((c) => c.pair.bookmaker === PRIMARY_BOOKMAKER).length}`,
+  );
+  lines.push(
+    `BET365_FALLBACK: ${report.candidates.filter((c) => c.pair.bookmaker !== PRIMARY_BOOKMAKER).length}`,
+  );
 
   for (const candidate of report.candidates) {
     const { fixture, pair } = candidate;

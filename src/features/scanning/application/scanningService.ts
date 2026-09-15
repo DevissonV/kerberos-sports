@@ -27,6 +27,7 @@ export class ScanningService {
       fetchOddsEvents: () => this.oddsProvider.upcomingOddsEvents(),
       fetchOddsPairs: (events) => this.oddsProvider.overUnderPairs(events),
       limit,
+      now: new Date(),
     });
   }
 }

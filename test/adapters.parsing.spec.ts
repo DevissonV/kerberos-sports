@@ -27,6 +27,8 @@ describe('adapter API-Football parsing', () => {
       id: '1001',
       sport: 'FOOTBALL',
       league: 'Premier League',
+      leagueId: 39,
+      country: 'England',
       homeTeam: 'Arsenal',
       awayTeam: 'Chelsea FC',
       status: 'NS',
