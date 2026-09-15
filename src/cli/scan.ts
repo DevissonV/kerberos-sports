@@ -10,6 +10,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { QuantModule } from '../features/quant/quant.module';
 import { QuantScanService } from '../features/quant/application/quantScanService';
+import { RefinementService } from '../features/quant/application/refinementService';
 import { renderQuantRun } from '../features/quant/application/quantReport';
 import { config, hasNetworkKeys } from '../shared/config/configuration';
 import { logger } from '../shared/logging/logger';
@@ -33,6 +34,27 @@ async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(QuantModule, { logger: false });
   try {
     const quantScan = app.get(QuantScanService);
+    if (config.refinementMode) {
+      const refinement = app.get(RefinementService);
+      const summary = await refinement.runTick(config);
+      process.stdout.write(
+        `${JSON.stringify({
+          PRECHECK_ONLY: summary.precheckOnly,
+          PL_FIXTURES: summary.premierLeagueFixtures,
+          DECISION_WINDOW_FIXTURES: summary.decisionWindowFixtures,
+          FULL_ODDS_SCANS: summary.fullOddsScans,
+          ODDSPAPI_REQUESTS: summary.oddsPapiRequests,
+          QUANT_CANDIDATES: summary.quantCandidates,
+          PAPER_BETS: summary.paperBetsCreated,
+          LUNA_CALLS: summary.lunaCalls,
+          SETTLEMENTS: summary.settlements,
+          TELEGRAM_HEARTBEAT_SENT: summary.heartbeatSent,
+          BUDGET_GUARD: summary.budgetGuard,
+          ERROR: summary.error,
+        })}\n`,
+      );
+      return;
+    }
     const summary = await quantScan.runScan(SCAN_FIXTURE_LIMIT);
     for (const entry of summary.scan.logs) {
       if (entry.level === 'WARN') logger.warn(entry.message);

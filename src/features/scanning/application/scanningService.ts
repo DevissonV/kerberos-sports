@@ -12,6 +12,21 @@ import { ODDS_PROVIDER } from '../ports/oddsProvider';
 import type { OddsProvider } from '../ports/oddsProvider';
 import { runScan } from './scanPipeline';
 import type { ScanOutput } from './scanPipeline';
+import { decisionAtFromKickoff, evaluateDecisionWindow } from '../domain/decisionWindow';
+import { evaluateProtocolEligibility } from '../domain/protocol';
+import type { Fixture } from '../domain/concepts';
+
+export interface PrecheckFixture {
+  fixture: Fixture;
+  decisionAt: Date;
+  needsSnapshot: boolean;
+}
+
+export interface PrecheckOutput {
+  fixtures: PrecheckFixture[];
+  eligibleFixtures: number;
+  decisionWindowFixtures: PrecheckFixture[];
+}
 
 @Injectable()
 export class ScanningService {
@@ -29,5 +44,37 @@ export class ScanningService {
       limit,
       now: new Date(),
     });
+  }
+
+  async precheck(limit: number, now = new Date()): Promise<PrecheckOutput> {
+    const raw = await this.fixturesProvider.upcomingFixtures(limit);
+    const fixtures = raw
+      .filter((fixture) => evaluateProtocolEligibility(fixture) === null)
+      .map((fixture) => ({
+        fixture,
+        decisionAt: decisionAtFromKickoff(fixture.kickoffAt),
+        needsSnapshot:
+          evaluateDecisionWindow(fixture.kickoffAt, now) === 'ELIGIBLE_AT_DECISION_WINDOW',
+      }));
+    return {
+      fixtures,
+      eligibleFixtures: fixtures.length,
+      decisionWindowFixtures: fixtures.filter((entry) => entry.needsSnapshot),
+    };
+  }
+
+  async scanFixtures(fixtures: readonly Fixture[], now = new Date()): Promise<ScanOutput> {
+    return runScan({
+      fetchFixtures: () => Promise.resolve([...fixtures]),
+      fetchOddsEvents: () => this.oddsProvider.upcomingOddsEvents(),
+      fetchOddsPairs: (events) => this.oddsProvider.overUnderPairs(events),
+      limit: fixtures.length,
+      now,
+    });
+  }
+
+  oddsPapiRequests(): number {
+    const provider = this.oddsProvider as OddsProvider & { requestCount?: () => number };
+    return provider.requestCount?.() ?? 0;
   }
 }

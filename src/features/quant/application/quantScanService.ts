@@ -21,6 +21,7 @@ import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
 import { flushQuantBets } from './flushQuantBets';
 import { LunaShadowService } from '../../luna/application/lunaShadowService';
+import type { Fixture } from '../../scanning/domain/concepts';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -50,19 +51,30 @@ export class QuantScanService {
   /** Corrida completa: scan de red -> QUANT -> PaperBets -> Telegram. */
   async runScan(limit: number): Promise<QuantScanSummary> {
     const scan = await this.scanningService.scan(limit);
+    return this.finishScan(scan);
+  }
+
+  async runScanForFixtures(
+    fixtures: readonly Fixture[],
+    now = new Date(),
+  ): Promise<QuantScanSummary> {
+    return this.finishScan(await this.scanningService.scanFixtures(fixtures, now), now);
+  }
+
+  private async finishScan(scan: ScanOutput, now = new Date()): Promise<QuantScanSummary> {
     const loadHistorical = this.loadHistoricalMatches ?? loadLocalHistoricalMatches;
     const historicalMatches = loadHistorical();
     const bankroll = paperBankrollState(this.paperBetStore);
     const result = runQuantPipeline({
       candidates: scan.report.candidates,
       historicalMatches,
-      now: new Date(),
+      now,
       initialBankroll: INITIAL_BANKROLL,
       openStakesSum: bankroll.openStakesSum,
       settledPnlSum: bankroll.settledPnlSum,
       findExistingBet: (key) => this.paperBetStore.findByIdempotencyKey(key),
     });
-    const luna = await this.lunaShadow.evaluate(result, new Date());
+    const luna = await this.lunaShadow.evaluate(result, now);
     const flush = await flushQuantBets({
       prepared: result.prepared,
       store: this.paperBetStore,

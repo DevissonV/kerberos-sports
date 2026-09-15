@@ -176,6 +176,7 @@ export class OddsPapiAdapter implements OddsProvider {
   ) {}
 
   private lastRequestAt = 0;
+  private requests = 0;
 
   private async getJson(path: string, query: Record<string, string>): Promise<unknown> {
     // Rate limit global de la API: pacing de 1100ms entre requests.
@@ -185,6 +186,7 @@ export class OddsPapiAdapter implements OddsProvider {
       await sleep(REQUEST_COOLDOWN_MS - elapsed);
     }
     this.lastRequestAt = Date.now();
+    this.requests += 1;
     const url = new URL(path, this.baseUrl);
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
     url.searchParams.set('apiKey', this.apiKey);
@@ -194,6 +196,10 @@ export class OddsPapiAdapter implements OddsProvider {
       throw new OddsProviderError(`OddsPapi respondio HTTP ${response.status} en ${path}`);
     }
     return response.json();
+  }
+
+  requestCount(): number {
+    return this.requests;
   }
 
   async upcomingOddsEvents(): Promise<OddsEvent[]> {

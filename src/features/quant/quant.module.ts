@@ -9,14 +9,19 @@
  */
 
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { createConfig } from '../../shared/config/configuration';
+import type { AppConfig } from '../../shared/config/configuration';
 import { validateEnvironment } from '../../shared/config/environment';
 import { ScanningModule } from '../scanning/scanning.module';
 import { PaperBettingModule } from '../paper-betting/paper-betting.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { LunaModule } from '../luna/luna.module';
 import { QuantScanService } from './application/quantScanService';
+import { RefinementService } from './application/refinementService';
+import { SqliteRefinementStore } from './adapters/sqliteRefinementStore';
+import { REFINEMENT_STORE } from './ports/refinementStore';
+import { SettlementModule } from '../settlement/settlement.module';
 
 /**
  * Módulo standalone de batch (cli/scan.ts): declara su propio ConfigModule porque no
@@ -34,8 +39,20 @@ import { QuantScanService } from './application/quantScanService';
     PaperBettingModule,
     NotificationsModule,
     LunaModule,
+    SettlementModule,
   ],
-  providers: [QuantScanService],
-  exports: [QuantScanService],
+  providers: [
+    QuantScanService,
+    RefinementService,
+    {
+      provide: REFINEMENT_STORE,
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService<AppConfig>) =>
+        new SqliteRefinementStore(
+          cfg.get('paperBetsDbPath', { infer: true }) ?? 'data/kerberos-sports.db',
+        ),
+    },
+  ],
+  exports: [QuantScanService, RefinementService],
 })
 export class QuantModule {}

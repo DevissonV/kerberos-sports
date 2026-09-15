@@ -29,6 +29,8 @@ export interface AppConfig {
    * volumen durable (/data); en local usa `data/` del proyecto.
    */
   paperBetsDbPath: string;
+  refinementMode: boolean;
+  maxOddsPapiFullScansPerDay: number;
 }
 
 /** Variables de entorno cuyo valor es un secreto y debe redactarse en logs. */
@@ -65,6 +67,8 @@ export function createConfig(): AppConfig {
     telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
     telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
     paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',
+    refinementMode: process.env.REFINEMENT_MODE === 'true',
+    maxOddsPapiFullScansPerDay: Number(process.env.MAX_ODDSPAPI_FULL_SCANS_PER_DAY ?? 2),
   };
 }
 

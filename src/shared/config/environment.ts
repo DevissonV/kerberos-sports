@@ -12,6 +12,10 @@ const booleanFromString = z
   .enum(['true', 'false'])
   .default('true')
   .transform((value) => value === 'true');
+const refinementBoolean = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
 
 export const environmentSchema = z
   .object({
@@ -27,6 +31,8 @@ export const environmentSchema = z
     TELEGRAM_CHAT_ID: z.string().optional(),
     PAPER_BETS_DB_PATH: z.string().default('data/kerberos-sports.db'),
     PAPER_ONLY: booleanFromString,
+    REFINEMENT_MODE: refinementBoolean,
+    MAX_ODDSPAPI_FULL_SCANS_PER_DAY: z.coerce.number().int().positive().default(2),
   })
   .superRefine((env, context) => {
     if (!env.PAPER_ONLY) {
