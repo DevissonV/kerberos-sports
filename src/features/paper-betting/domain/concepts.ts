@@ -10,12 +10,16 @@ export type PaperBetOutcome = 'WON' | 'LOST' | 'VOID';
  */
 export interface PaperBet {
   id: string;
+  /** Cohorte del protocolo congelado (p. ej. KSS-V1-C01). Parte de la identidad durable. */
+  cohortId: string;
   fixtureId: number;
   league: string;
   homeTeam: string;
   awayTeam: string;
   /** Inicio del partido (timestamp). */
   kickoff: Date;
+  /** Instante de decisión T-6h congelado del snapshot (UTC). */
+  snapshotAt: Date;
   /** Mercado (p. ej. MATCH_WINNER). */
   market: string;
   /** Selección apostada (p. ej. HOME, DRAW, AWAY). */
@@ -33,6 +37,10 @@ export interface PaperBet {
   placedOdds: number;
   /** Cuota mínima aceptada al congelar la apuesta. */
   minimumAcceptableOdds: number;
+  /** Goles esperados del modelo Poisson (diagnóstico; odds nunca son feature). */
+  lambdaHome: number;
+  lambdaAway: number;
+  lambdaTotal: number;
   stake: number;
   /** Snapshot del bankroll justo antes de registrar la apuesta. */
   bankrollBefore: number;

@@ -14,9 +14,13 @@ aquí no se toca nada del stack de trading: sin Binance, sin futures, sin exchan
   — nunca por nombre de liga), mercado `OVER_UNDER_2_5`, ventana de decisión `T-6h`,
   bookmaker primario `Pinnacle` con fallback `Bet365`. `MATCH_WINNER` queda descartado como
   mercado de esta cohorte (se mencionaba antes como "candidato, no congelado"; ya no aplica).
-- **QUANT (Poisson) y Luna:** planeados, NO implementados todavía. El pipeline actual no tiene
-  modelo propio: `edge` es siempre `0` y la decisión es fija `NO_BET_PIPELINE_ONLY`
-  (`runScan`/`ScanCandidate` en `application/scanPipeline.ts`).
+- **QUANT/Poisson V1 activo end-to-end** (vertical slice): fixtures -> filtro KSS-V1-C01 ->
+  odds O/U 2.5 -> matching -> snapshot T-6h -> Poisson V1 (causal, sin odds como feature) ->
+  de-vig -> edge -> EV -> gate congelado -> PaperBet SQLite -> Telegram. Luna queda planeada
+  como SHADOW (no cableada todavía; punto de extensión en `QuantScanSummary.prepared`), HYBRID
+  inactivo. Sin corrida y sin opportunity real, 0 PaperBets es un resultado válido.
+  `ScanCandidate` sigue exponiendo `model: NOT_YET_AVAILABLE` y `edge: 0` a nivel scan; el
+  pipeline QUANT propio vive en `src/features/quant/`.
 
 ## Qué hay hoy
 
@@ -59,6 +63,8 @@ Nest deba orquestar.
 src/
   main.ts                          # bootstrap batch (ApplicationContext, sin servidor HTTP)
   app.module.ts                    # módulo raíz (ConfigModule + ScanningModule + NotificationsModule)
+    features/quant/                  # QUANT end-to-end: dominio (gate, candidatos), pipeline puro,
+                                     # flush (persistencia+Telegram), QuantModule standalone (cli/scan)
   cli/
     scan.ts                        # smoke de red: fixtures -> odds -> matching -> de-vig
     telegramSmoke.ts                # smoke de Telegram

@@ -23,11 +23,13 @@ import {
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS paper_bets (
     id TEXT PRIMARY KEY,
+    cohortId TEXT NOT NULL,
     fixtureId INTEGER NOT NULL,
     league TEXT NOT NULL,
     homeTeam TEXT NOT NULL,
     awayTeam TEXT NOT NULL,
     kickoff TEXT NOT NULL,
+    snapshotAt TEXT NOT NULL,
     market TEXT NOT NULL,
     selection TEXT NOT NULL,
     modelVersion TEXT NOT NULL,
@@ -38,6 +40,9 @@ const CREATE_TABLE = `
     bookmaker TEXT NOT NULL,
     placedOdds REAL NOT NULL,
     minimumAcceptableOdds REAL NOT NULL,
+    lambdaHome REAL NOT NULL,
+    lambdaAway REAL NOT NULL,
+    lambdaTotal REAL NOT NULL,
     stake REAL NOT NULL,
     bankrollBefore REAL NOT NULL,
     status TEXT NOT NULL,
@@ -46,15 +51,15 @@ const CREATE_TABLE = `
     closingOdds REAL,
     result TEXT,
     pnl REAL,
-    UNIQUE (fixtureId, market, selection, modelVersion)
+    UNIQUE (cohortId, fixtureId, market, selection, modelVersion)
   )
 `;
 
 const COLUMNS =
-  'id, fixtureId, league, homeTeam, awayTeam, kickoff, market, selection, modelVersion, ' +
-  'modelProbability, fairMarketProbability, edge, expectedValue, bookmaker, placedOdds, ' +
-  'minimumAcceptableOdds, stake, bankrollBefore, status, createdAt, settledAt, closingOdds, ' +
-  'result, pnl';
+  'id, cohortId, fixtureId, league, homeTeam, awayTeam, kickoff, snapshotAt, market, selection, ' +
+  'modelVersion, modelProbability, fairMarketProbability, edge, expectedValue, bookmaker, ' +
+  'placedOdds, minimumAcceptableOdds, lambdaHome, lambdaAway, lambdaTotal, stake, bankrollBefore, ' +
+  'status, createdAt, settledAt, closingOdds, result, pnl';
 
 /**
  * Se instancia vía factory provider en `paper-betting.module.ts` (no vía
@@ -70,13 +75,15 @@ export class SqlitePaperBetStore implements PaperBetStore {
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
+    migrateLegacySchema(this.db);
     this.db.exec(CREATE_TABLE);
     this.insert = this.db.prepare(
       `INSERT INTO paper_bets (${COLUMNS}) VALUES ` +
-        '(:id, :fixtureId, :league, :homeTeam, :awayTeam, :kickoff, :market, :selection, ' +
-        ':modelVersion, :modelProbability, :fairMarketProbability, :edge, :expectedValue, ' +
-        ':bookmaker, :placedOdds, :minimumAcceptableOdds, :stake, :bankrollBefore, :status, ' +
-        ':createdAt, :settledAt, :closingOdds, :result, :pnl)',
+        '(:id, :cohortId, :fixtureId, :league, :homeTeam, :awayTeam, :kickoff, :snapshotAt, ' +
+        ':market, :selection, :modelVersion, :modelProbability, :fairMarketProbability, :edge, ' +
+        ':expectedValue, :bookmaker, :placedOdds, :minimumAcceptableOdds, :lambdaHome, :lambdaAway, ' +
+        ':lambdaTotal, :stake, :bankrollBefore, :status, :createdAt, :settledAt, :closingOdds, ' +
+        ':result, :pnl)',
     );
     this.updateSettlement = this.db.prepare(
       `UPDATE paper_bets SET status = :status, settledAt = :settledAt,
@@ -96,6 +103,7 @@ export class SqlitePaperBetStore implements PaperBetStore {
     } catch (cause) {
       if (isUniqueViolation(cause)) {
         throw new DuplicatePaperBetError({
+          cohortId: bet.cohortId,
           fixtureId: bet.fixtureId,
           market: bet.market,
           selection: bet.selection,
@@ -114,10 +122,10 @@ export class SqlitePaperBetStore implements PaperBetStore {
   findByIdempotencyKey(key: PaperBetKey): PaperBet | null {
     const row = this.db
       .prepare(
-        `SELECT ${COLUMNS} FROM paper_bets WHERE fixtureId = ? AND market = ?
+        `SELECT ${COLUMNS} FROM paper_bets WHERE cohortId = ? AND fixtureId = ? AND market = ?
            AND selection = ? AND modelVersion = ?`,
       )
-      .get(key.fixtureId, key.market, key.selection, key.modelVersion);
+      .get(key.cohortId, key.fixtureId, key.market, key.selection, key.modelVersion);
     return row === undefined ? null : deserialize(row);
   }
 
@@ -163,14 +171,45 @@ function isUniqueViolation(cause: unknown): boolean {
   return typeof message === 'string' && message.includes('UNIQUE constraint failed');
 }
 
+/**
+ * Migra una tabla `paper_bets` del esquema antiguo (sin cohortId/snapshotAt/lambdas) al
+ * vigente. Los datos PAPER previos se conservan; las columnas nuevas quedan con valores
+ * neutros para esas filas. Idempotente: no-op si la tabla ya tiene el esquema actual.
+ */
+function migrateLegacySchema(db: Db): void {
+  const tableInfo = db.prepare('PRAGMA table_info(paper_bets)').all() as { name: string }[];
+  if (tableInfo.length === 0) return;
+  const has = (name: string): boolean => tableInfo.some((column) => column.name === name);
+  const statements = [
+    has('cohortId') ? null : `ALTER TABLE paper_bets ADD COLUMN cohortId TEXT NOT NULL DEFAULT ''`,
+    has('snapshotAt')
+      ? null
+      : "ALTER TABLE paper_bets ADD COLUMN snapshotAt TEXT NOT NULL DEFAULT ''",
+    has('lambdaHome')
+      ? null
+      : 'ALTER TABLE paper_bets ADD COLUMN lambdaHome REAL NOT NULL DEFAULT 0',
+    has('lambdaAway')
+      ? null
+      : 'ALTER TABLE paper_bets ADD COLUMN lambdaAway REAL NOT NULL DEFAULT 0',
+    has('lambdaTotal')
+      ? null
+      : 'ALTER TABLE paper_bets ADD COLUMN lambdaTotal REAL NOT NULL DEFAULT 0',
+  ];
+  for (const statement of statements) {
+    if (statement !== null) db.exec(statement);
+  }
+}
+
 function serialize(bet: PaperBet): Record<string, string | number | null> {
   return {
     id: bet.id,
+    cohortId: bet.cohortId,
     fixtureId: bet.fixtureId,
     league: bet.league,
     homeTeam: bet.homeTeam,
     awayTeam: bet.awayTeam,
     kickoff: bet.kickoff.toISOString(),
+    snapshotAt: bet.snapshotAt.toISOString(),
     market: bet.market,
     selection: bet.selection,
     modelVersion: bet.modelVersion,
@@ -181,6 +220,9 @@ function serialize(bet: PaperBet): Record<string, string | number | null> {
     bookmaker: bet.bookmaker,
     placedOdds: bet.placedOdds,
     minimumAcceptableOdds: bet.minimumAcceptableOdds,
+    lambdaHome: bet.lambdaHome,
+    lambdaAway: bet.lambdaAway,
+    lambdaTotal: bet.lambdaTotal,
     stake: bet.stake,
     bankrollBefore: bet.bankrollBefore,
     status: bet.status,
@@ -195,11 +237,13 @@ function serialize(bet: PaperBet): Record<string, string | number | null> {
 function deserialize(row: Record<string, unknown>): PaperBet {
   return {
     id: row['id'] as string,
+    cohortId: row['cohortId'] as string,
     fixtureId: row['fixtureId'] as number,
     league: row['league'] as string,
     homeTeam: row['homeTeam'] as string,
     awayTeam: row['awayTeam'] as string,
     kickoff: new Date(row['kickoff'] as string),
+    snapshotAt: new Date(row['snapshotAt'] as string),
     market: row['market'] as string,
     selection: row['selection'] as string,
     modelVersion: row['modelVersion'] as string,
@@ -210,6 +254,9 @@ function deserialize(row: Record<string, unknown>): PaperBet {
     bookmaker: row['bookmaker'] as string,
     placedOdds: row['placedOdds'] as number,
     minimumAcceptableOdds: row['minimumAcceptableOdds'] as number,
+    lambdaHome: row['lambdaHome'] as number,
+    lambdaAway: row['lambdaAway'] as number,
+    lambdaTotal: row['lambdaTotal'] as number,
     stake: row['stake'] as number,
     bankrollBefore: row['bankrollBefore'] as number,
     status: row['status'] as PaperBet['status'],

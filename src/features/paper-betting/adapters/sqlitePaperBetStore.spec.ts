@@ -1,15 +1,32 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { DuplicatePaperBetError } from '../ports/paperBetStore';
+import type { PaperBetKey } from '../ports/paperBetStore';
 import { AlreadySettledError, type PaperBet } from '../domain/concepts';
 import { SqlitePaperBetStore } from './sqlitePaperBetStore';
+
+function makeKeyFixture(fixtureId: number, selection: string): PaperBetKey {
+  return {
+    cohortId: 'KSS-V1-C01',
+    fixtureId,
+    market: 'MATCH_WINNER',
+    selection,
+    modelVersion: 'poisson-v1',
+  };
+}
 
 function makeBet(overrides: Partial<PaperBet> = {}): PaperBet {
   return {
     id: 'b1',
+    cohortId: 'KSS-V1-C01',
     fixtureId: 123,
-    league: 'Liga Nacional',
-    homeTeam: 'Comunicaciones',
-    awayTeam: 'Antigua GFC',
+    league: 'Premier League',
+    homeTeam: 'Arsenal',
+    awayTeam: 'Chelsea',
     kickoff: new Date('2026-09-20T22:00:00Z'),
+    snapshotAt: new Date('2026-09-20T16:00:00Z'),
     market: 'MATCH_WINNER',
     selection: 'HOME',
     modelVersion: 'poisson-v1',
@@ -20,6 +37,9 @@ function makeBet(overrides: Partial<PaperBet> = {}): PaperBet {
     bookmaker: 'local-book',
     placedOdds: 2.1,
     minimumAcceptableOdds: 1.9,
+    lambdaHome: 1.45,
+    lambdaAway: 1.2,
+    lambdaTotal: 2.65,
     stake: 10,
     bankrollBefore: 1000,
     status: 'OPEN',
@@ -73,14 +93,12 @@ describe('SqlitePaperBetStore', () => {
     const mutated = makeBet({ id: 'b2', stake: 25 });
     expect(() => store.save(mutated)).toThrow(DuplicatePaperBetError);
 
-    const existing = store.findByIdempotencyKey({
-      fixtureId: 123,
-      market: 'MATCH_WINNER',
-      selection: 'HOME',
-      modelVersion: 'poisson-v1',
-    });
+    const existing = store.findByIdempotencyKey(makeKeyFixture(123, 'HOME'));
     expect(existing?.id).toBe('b1');
     expect(existing?.stake).toBe(10);
+
+    // Distinta cohorte (misma clave parcial) NO es duplicado.
+    expect(() => store.save(makeBet({ id: 'b4', cohortId: 'KSS-V1-C02' }))).not.toThrow();
 
     // Distinta selección (misma clave parcial) NO es duplicado.
     expect(() => store.save(makeBet({ id: 'b3', selection: 'AWAY' }))).not.toThrow();
@@ -123,5 +141,66 @@ describe('SqlitePaperBetStore', () => {
     store.save(makeBet());
     store.settle('b1', 'WON');
     expect(() => store.settle('b1', 'LOST')).toThrow(AlreadySettledError);
+  });
+
+  it('migra un schema legacy (sin cohortId/snapshotAt/lambdas) sin perder datos', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kss-paperbets-'));
+    const dbPath = join(dir, 'legacy.db');
+    const raw = new DatabaseSync(dbPath);
+    raw.exec(`
+      CREATE TABLE paper_bets (
+        id TEXT PRIMARY KEY,
+        fixtureId INTEGER NOT NULL,
+        league TEXT NOT NULL,
+        homeTeam TEXT NOT NULL,
+        awayTeam TEXT NOT NULL,
+        kickoff TEXT NOT NULL,
+        market TEXT NOT NULL,
+        selection TEXT NOT NULL,
+        modelVersion TEXT NOT NULL,
+        modelProbability REAL NOT NULL,
+        fairMarketProbability REAL NOT NULL,
+        edge REAL NOT NULL,
+        expectedValue REAL NOT NULL,
+        bookmaker TEXT NOT NULL,
+        placedOdds REAL NOT NULL,
+        minimumAcceptableOdds REAL NOT NULL,
+        stake REAL NOT NULL,
+        bankrollBefore REAL NOT NULL,
+        status TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        settledAt TEXT,
+        closingOdds REAL,
+        result TEXT,
+        pnl REAL,
+        UNIQUE (fixtureId, market, selection, modelVersion)
+      );
+      INSERT INTO paper_bets (id, fixtureId, league, homeTeam, awayTeam, kickoff, market, selection,
+        modelVersion, modelProbability, fairMarketProbability, edge, expectedValue, bookmaker,
+        placedOdds, minimumAcceptableOdds, stake, bankrollBefore, status, createdAt)
+      VALUES ('legacy-1', 123, 'Liga Nacional', 'Comunicaciones', 'Antigua GFC',
+        '2026-09-20T22:00:00.000Z', 'MATCH_WINNER', 'HOME', 'baseline', 0.5, 0.5, 0, 0,
+        'local-book', 2.0, 2.0, 10, 1000, 'OPEN', '2026-09-20T21:00:00.000Z');
+    `);
+    raw.close();
+
+    const migrated = new SqlitePaperBetStore(dbPath);
+    try {
+      const legacy = migrated.findById('legacy-1');
+      expect(legacy?.status).toBe('OPEN');
+      // La clave de idempotencia de la cohorte nueva NO colisiona con el legacy.
+      expect(migrated.findByIdempotencyKey(makeKeyFixture(123, 'HOME'))).toBeNull();
+      const newBet = makeBet({ fixtureId: 123, selection: 'HOME' });
+      newBet.id = 'new-1';
+      expect(() => migrated.save(newBet)).not.toThrow();
+
+      // La nueva fila es durable y con la cohorte correcta.
+      const stored = migrated.findById('new-1');
+      expect(stored).toEqual(newBet);
+    } finally {
+      migrated.close();
+      rmSync(dbPath);
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

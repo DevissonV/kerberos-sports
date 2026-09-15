@@ -5,6 +5,7 @@ export const PAPER_BET_STORE = Symbol('PaperBetStore');
 
 /** Clave de idempotencia: ninguna estrategia debe insertar la misma apuesta dos veces. */
 export interface PaperBetKey {
+  cohortId: string;
   fixtureId: number;
   market: string;
   selection: string;
@@ -37,12 +38,12 @@ export interface PaperBetStore {
   ): PaperBet;
 }
 
-/** La misma (fixtureId, market, selection, modelVersion) ya existe: inserción rechazada. */
+/** La misma (cohortId, fixtureId, market, selection, modelVersion) ya existe: rechazada. */
 export class DuplicatePaperBetError extends Error {
   readonly key: PaperBetKey;
   constructor(key: PaperBetKey) {
     super(
-      `PaperBet duplicada para fixture=${key.fixtureId} market=${key.market} selection=${key.selection} model=${key.modelVersion}`,
+      `PaperBet duplicada para cohort=${key.cohortId} fixture=${key.fixtureId} market=${key.market} selection=${key.selection} model=${key.modelVersion}`,
     );
     this.name = 'DuplicatePaperBetError';
     this.key = key;

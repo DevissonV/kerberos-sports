@@ -15,11 +15,14 @@ export type ModelLabel = 'NOT_YET_AVAILABLE' | 'BASELINE';
 
 export interface ScanCandidate {
   fixture: Fixture;
+  /** Par representativo del candidato (primario si está, si no el primero). */
   pair: OddsPair;
+  /** Todos los pares O/U 2.5 disponibles del snapshot (uno por bookmaker). */
+  pairs: OddsPair[];
   fairOverProbability: number;
   fairUnderProbability: number;
   model: ModelLabel;
-  /** 0 por diseño mientras no exista modelo propio. */
+  /** 0 por diseño mientras no exista modelo propio activo en el scan. */
   edge: number;
   decision: 'NO_BET_PIPELINE_ONLY';
   /** Snapshot temporal T-6h (protocolo KSS-V1-C01), UTC. */
@@ -172,9 +175,11 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
     }
     for (const pair of pairs) {
       const fair = devigTwoWay(pair.over.decimalOdds, pair.under.decimalOdds);
+      if (pair !== pairs[0]) continue;
       candidates.push({
         fixture,
         pair,
+        pairs,
         fairOverProbability: fair.pOverFair,
         fairUnderProbability: fair.pUnderFair,
         model: 'NOT_YET_AVAILABLE',

@@ -16,3 +16,6 @@ resources/temp/*
 !resources/temp/KSS-ARCH-NEST-handoff.md
 !resources/temp/KSS-DATA-GATE-01-handoff.md
 !resources/temp/KSS-PIPELINE-PROTOCOL-01-handoff.md
+
+# SQLite local de PaperBets (PAPER ONLY, local/durable por runtime)
+data/

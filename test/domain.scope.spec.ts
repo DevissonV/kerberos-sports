@@ -28,11 +28,13 @@ describe('domain scope', () => {
     };
     const bet: PaperBet = {
       id: 'p1',
+      cohortId: 'KSS-V1-C01',
       fixtureId: 1,
       league: 'Liga Nacional',
       homeTeam: fixture.homeTeam,
       awayTeam: fixture.awayTeam,
       kickoff: fixture.kickoffAt,
+      snapshotAt: new Date(fixture.kickoffAt.getTime() - 6 * 60 * 60 * 1000),
       market: 'MATCH_WINNER',
       selection: 'HOME',
       modelVersion: 'poisson-v1',
@@ -43,6 +45,9 @@ describe('domain scope', () => {
       bookmaker: 'local-book',
       placedOdds: quote.odds.HOME ?? 0,
       minimumAcceptableOdds: 2,
+      lambdaHome: 1.4,
+      lambdaAway: 1.1,
+      lambdaTotal: 2.5,
       stake: 10,
       bankrollBefore: 100,
       status: 'OPEN',

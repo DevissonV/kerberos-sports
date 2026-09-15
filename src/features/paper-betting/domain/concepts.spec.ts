@@ -7,6 +7,7 @@ import {
 
 describe('paper-betting domain', () => {
   const kickoff = new Date('2026-09-20T22:00:00Z');
+  const snapshotAt = new Date('2026-09-20T16:00:00Z');
 
   it('calculatePnl correcto: WON = stake*(odds-1), LOST = -stake, VOID = 0', () => {
     expect(calculatePnl('WON', 10, 2.5)).toBeCloseTo(15);
@@ -30,11 +31,13 @@ describe('paper-betting domain', () => {
   it('PaperBet soporta el snapshot completo pre-kickoff', () => {
     const bet: PaperBet = {
       id: 'b1',
+      cohortId: 'KSS-V1-C01',
       fixtureId: 1,
       league: 'Liga Nacional',
       homeTeam: 'Comunicaciones',
       awayTeam: 'Antigua GFC',
       kickoff,
+      snapshotAt,
       market: 'MATCH_WINNER',
       selection: 'HOME',
       modelVersion: 'poisson-v1',
@@ -45,6 +48,9 @@ describe('paper-betting domain', () => {
       bookmaker: 'local-book',
       placedOdds: 2.1,
       minimumAcceptableOdds: 1.9,
+      lambdaHome: 1.4,
+      lambdaAway: 1.1,
+      lambdaTotal: 2.5,
       stake: 10,
       bankrollBefore: 1000,
       status: 'OPEN',
