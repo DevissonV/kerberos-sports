@@ -3,6 +3,9 @@
 import type { OddsEvent } from '../domain/matching';
 import type { OddsPair } from '../domain/concepts';
 
+/** Token de inyección Nest para el puerto (las interfaces TS no existen en runtime). */
+export const ODDS_PROVIDER = Symbol('OddsProvider');
+
 export interface OddsProvider {
   /** Eventos próximos con odds disponibles (para matching). */
   upcomingOddsEvents(): Promise<OddsEvent[]>;

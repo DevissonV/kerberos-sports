@@ -14,6 +14,11 @@ export interface TelegramConfig {
   chatId: string;
 }
 
+/**
+ * Se instancia vía factory provider en `notifications.module.ts` (no vía
+ * `useClass`), por lo que no necesita `@Injectable()`: Nest no gestiona su
+ * construcción.
+ */
 export class TelegramNotificationAdapter implements NotificationPort {
   constructor(
     private readonly telegramConfig: TelegramConfig,

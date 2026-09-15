@@ -56,6 +56,11 @@ const COLUMNS =
   'minimumAcceptableOdds, stake, bankrollBefore, status, createdAt, settledAt, closingOdds, ' +
   'result, pnl';
 
+/**
+ * Se instancia vía factory provider en `paper-betting.module.ts` (no vía
+ * `useClass`), por lo que no necesita `@Injectable()`: Nest no gestiona su
+ * construcción.
+ */
 export class SqlitePaperBetStore implements PaperBetStore {
   private readonly db: Db;
   private readonly insert: ReturnType<Db['prepare']>;

@@ -4,13 +4,14 @@
  * suite de tests. Un request principal por proveedor por corrida.
  */
 
+import 'reflect-metadata';
 import { existsSync, readFileSync } from 'node:fs';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
 import { config, hasNetworkKeys } from '../shared/config/configuration';
 import { logger } from '../shared/logging/logger';
-import { ApiFootballFixturesAdapter } from '../features/scanning/adapters/apiFootballFixtures';
-import { OddsPapiAdapter } from '../features/scanning/adapters/oddsPapiOdds';
+import { ScanningService } from '../features/scanning/application/scanningService';
 import { parseManualQuotes } from '../features/scanning/application/manualQuotes';
-import { runScan } from '../features/scanning/application/scanPipeline';
 import { renderScanReport } from '../features/scanning/application/scanReport';
 
 const SCAN_FIXTURE_LIMIT = 20;
@@ -40,19 +41,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const fixturesAdapter = new ApiFootballFixturesAdapter(
-    config.apiFootballBaseUrl,
-    config.apiFootballKey as string,
-  );
-  const oddsAdapter = new OddsPapiAdapter(config.oddsPapiBaseUrl, config.oddsPapiKey as string);
-
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   try {
-    const { report, logs } = await runScan({
-      fetchFixtures: () => fixturesAdapter.upcomingFixtures(SCAN_FIXTURE_LIMIT),
-      fetchOddsEvents: () => oddsAdapter.upcomingOddsEvents(),
-      fetchOddsPairs: (events) => oddsAdapter.overUnderPairs(events),
-      limit: SCAN_FIXTURE_LIMIT,
-    });
+    const scanningService = app.get(ScanningService);
+    const { report, logs } = await scanningService.scan(SCAN_FIXTURE_LIMIT);
     for (const entry of logs) {
       if (entry.level === 'WARN') logger.warn(entry.message);
       else logger.info(entry.message);
@@ -71,6 +63,8 @@ async function main(): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
     process.exitCode = 1;
+  } finally {
+    await app.close();
   }
 }
 
