@@ -1,6 +1,6 @@
-- src/common/config/configuration.ts — patrón de configuración central (simplificado, sin @nestjs/config)
-- src/common/health/ — health check (simplificado, sin @nestjs/terminus)
-- src/common/logging/ — logging (simplificado, sin framework de logging)
+- src/shared/config/configuration.ts — patrón de configuración central (simplificado, sin @nestjs/config)
+- src/shared/health/ — health check (simplificado, sin @nestjs/terminus)
+- src/shared/logging/ — logging (simplificado, sin framework de logging)
 - tsconfig.json — configuración TS estricta idéntica (strict, noUncheckedIndexedAccess, etc.)
 - tsconfig.build.json — perfil de build (excluye test/dist/spec)
 - eslint.config.mjs — flat config ESLint + Prettier + recommendedTypeChecked + reglas de promesas

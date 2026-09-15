@@ -9,4 +9,5 @@ npm-debug.log*
 .DS_Store
 resources/temp/*
 !resources/temp/.gitkeep
-!resources/temp/KSS-T01-handoff.md
+!resources/temp/KSS-T*-handoff.md
+!resources/temp/KSS-T01B-architecture-correction.md

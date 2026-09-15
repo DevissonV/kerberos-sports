@@ -33,20 +33,3 @@ export interface Prediction {
   createdAt: Date;
   probabilities: Record<string, number>;
 }
-
-export interface PaperBet {
-  id: string;
-  marketId: string;
-  predictionId: string;
-  createdAt: Date;
-  stake: number;
-  selection: string;
-  odds: number;
-  status: 'OPEN' | 'WON' | 'LOST' | 'VOID';
-}
-
-export interface BankrollSnapshot {
-  id: string;
-  capturedAt: Date;
-  balance: number;
-}

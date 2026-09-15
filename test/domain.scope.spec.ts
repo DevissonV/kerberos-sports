@@ -1,6 +1,7 @@
-import { DEFAULT_SPORT } from '../src/domain';
-import { CANDIDATE_MARKET_KIND, SPORT } from '../src/domain/scope';
-import type { Fixture, Market, OddsQuote, PaperBet } from '../src/domain/concepts';
+import { DEFAULT_SPORT } from '../src/shared/config/scope';
+import { CANDIDATE_MARKET_KIND, SPORT } from '../src/features/opportunities/domain/scope';
+import type { Fixture, Market, OddsQuote } from '../src/features/opportunities/domain/concepts';
+import type { PaperBet } from '../src/features/paper-betting/domain/concepts';
 
 describe('domain scope', () => {
   it('solo FOOTBALL en MVP', () => {

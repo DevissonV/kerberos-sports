@@ -32,17 +32,29 @@ npm run format     # prettier --write
 
 ## Estructura
 
+Feature-first + hexagonal (alineada con `bot-kerberos`, pero sin NestJS. Fronteras de
+infraestructura futuras `FixturesProvider` / `OddsProvider` / `ResultsProvider` /
+`PaperBetStore` irán en `ports/` + `adapters/` por feature cuando existan).
+
 ```
 src/
-  main.ts                     # bootstrap mínimo (imprime health)
-  domain/concepts.ts          # entidades conceptuales (tipos puros)
-  domain/scope.ts             # FOOTBALL + mercado candidato
-  domain/index.ts
-  common/config/              # configuración mínima
-  common/health/              # health check en memoria
-  common/logging/             # logger simple stdout
-test/                         # jest specs
-resources/temp/               # temporales, ignorado por git excepto .gitkeep y handoffs
+  features/                       # cada feature es dueña de sus entidades
+    opportunities/
+      domain/                     # Sport, Fixture, Market, OddsQuote, Prediction
+      scope.ts → FOOTBALL + mercado candidato (MATCH_WINNER)
+    paper-betting/
+      domain/                     # PaperBet
+    bankroll/
+      domain/                     # BankrollSnapshot
+    settlement/                   # futura feature de liquidación
+  shared/
+    config/                       # configuración + alcance (FOOTBALL)
+    logging/                      # logger simple stdout
+    health/                       # health check en memoria
+  cli/
+    main.ts                       # bootstrap mínimo (imprime health)
+test/                             # jest specs
+resources/temp/                   # temporales, ignorado por git excepto .gitkeep y handoffs
 ```
 
 ## Reglas
