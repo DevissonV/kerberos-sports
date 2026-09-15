@@ -20,6 +20,11 @@ export interface AppConfig {
   telegramBotToken?: string;
   /** Chat ID de destino de las notificaciones de Kerberos SPORTS. */
   telegramChatId?: string;
+  /**
+   * Ruta del fichero SQLite del PaperBetStore. En Railway debe apuntar al
+   * volumen durable (/data); en local usa `data/` del proyecto.
+   */
+  paperBetsDbPath: string;
 }
 
 /** Variables de entorno cuyo valor es un secreto y debe redactarse en logs. */
@@ -50,6 +55,7 @@ export const config: AppConfig = {
   oddsPapiBaseUrl: optionalEnv('ODDSPAPI_BASE_URL') ?? 'https://api.oddspapi.io',
   telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
   telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
+  paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',
 };
 
 /**
