@@ -1,0 +1,10 @@
+- src/common/config/configuration.ts — patrón de configuración central (simplificado, sin @nestjs/config)
+- src/common/health/ — health check (simplificado, sin @nestjs/terminus)
+- src/common/logging/ — logging (simplificado, sin framework de logging)
+- tsconfig.json — configuración TS estricta idéntica (strict, noUncheckedIndexedAccess, etc.)
+- tsconfig.build.json — perfil de build (excluye test/dist/spec)
+- eslint.config.mjs — flat config ESLint + Prettier + recommendedTypeChecked + reglas de promesas
+- .prettierrc.json / .prettierignore — formato idéntico
+- jest.config.ts — Jest con ts-jest, testRegex .spec.ts, coverage
+- .gitignore — patrón base (node_modules, dist, .env, tsbuildinfo)
+- package.json — scripts npm (lint/format/test/build/validate), engines node 24, convención de nombre de scripts
