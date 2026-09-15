@@ -14,6 +14,10 @@ export interface ResolvedBet {
 }
 
 export interface MetricsReport {
+  bets: number;
+  won: number;
+  lost: number;
+  void: number;
   totalBets: number;
   wins: number;
   losses: number;
@@ -26,10 +30,14 @@ export interface MetricsReport {
   grossLoss: number;
   /** grossProfit - grossLoss. */
   netPnL: number;
+  /** Alias de netPnL para reportes de settlement. */
+  grossPnL: number;
   /** ROI sobre el total staked de bets resueltas: netPnL / totalStaked. */
   roi: number;
   /** yield: netPnL / totalStaked (sinónimo de ROI en apuestas). */
   yield: number;
+  /** Bankroll inicial más el PnL de bets resueltas. */
+  currentBankroll: number;
   /** Mayor caída pico-a-valle de la curva acumulada de PnL (unidades monetarias, ≥ 0). */
   maxDrawdown: number;
   /** Curva acumulada de PnL en orden de llegada; el punto 0 es el estado inicial. */
@@ -63,7 +71,10 @@ export function calculateClosingLineValue(bet: ResolvedBet): number | undefined 
   return bet.odds / bet.closingOdds - 1;
 }
 
-export function calculateMetrics(bets: readonly ResolvedBet[]): MetricsReport {
+export function calculateMetrics(
+  bets: readonly ResolvedBet[],
+  options: { initialBankroll?: number } = {},
+): MetricsReport {
   const settled = bets.filter((b) => b.result === 'WON' || b.result === 'LOST');
   const won = settled.filter((b) => b.result === 'WON');
   const lost = settled.filter((b) => b.result === 'LOST');
@@ -110,6 +121,10 @@ export function calculateMetrics(bets: readonly ResolvedBet[]): MetricsReport {
   const clv = clvValues.length === 0 ? 0 : clvValues.reduce((a, b) => a + b, 0) / clvValues.length;
 
   return {
+    bets: bets.length,
+    won: won.length,
+    lost: lost.length,
+    void: voids,
     totalBets: bets.length,
     wins: won.length,
     losses: lost.length,
@@ -118,8 +133,10 @@ export function calculateMetrics(bets: readonly ResolvedBet[]): MetricsReport {
     grossProfit,
     grossLoss,
     netPnL,
+    grossPnL: netPnL,
     roi,
     yield: roi,
+    currentBankroll: (options.initialBankroll ?? 0) + netPnL,
     maxDrawdown,
     bankrollCurve,
     brierScore,

@@ -50,8 +50,12 @@ export interface PaperBet {
   closingOdds?: number;
   /** Resultado del partido (texto crudo del proveedor, opcional). */
   result?: string;
+  finalHomeGoals?: number;
+  finalAwayGoals?: number;
   /** PnL realizado: WON -> stake*(odds-1); LOST -> -stake; VOID -> 0. */
   pnl?: number;
+  /** Marca durable para no duplicar Telegram después de una segunda corrida. */
+  notificationSentAt?: Date;
 }
 
 export class PreKickoffViolationError extends Error {

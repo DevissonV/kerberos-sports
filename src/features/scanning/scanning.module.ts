@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppConfig } from '../../shared/config/configuration';
 import { ApiFootballFixturesAdapter } from './adapters/apiFootballFixtures';
+import { ApiFootballResultsAdapter } from './adapters/apiFootballResults';
 import { OddsPapiAdapter } from './adapters/oddsPapiOdds';
 import { FIXTURES_PROVIDER } from './ports/fixturesProvider';
 import { ODDS_PROVIDER } from './ports/oddsProvider';
+import { RESULTS_PROVIDER } from './ports/resultsProvider';
 import { ScanningService } from './application/scanningService';
 
 @Module({
@@ -27,8 +29,17 @@ import { ScanningService } from './application/scanningService';
           configService.get('oddsPapiKey', { infer: true }) ?? '',
         ),
     },
+    {
+      provide: RESULTS_PROVIDER,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<AppConfig>) =>
+        new ApiFootballResultsAdapter(
+          configService.get('apiFootballBaseUrl', { infer: true }) ?? '',
+          configService.get('apiFootballKey', { infer: true }) ?? '',
+        ),
+    },
     ScanningService,
   ],
-  exports: [ScanningService, FIXTURES_PROVIDER, ODDS_PROVIDER],
+  exports: [ScanningService, FIXTURES_PROVIDER, ODDS_PROVIDER, RESULTS_PROVIDER],
 })
 export class ScanningModule {}

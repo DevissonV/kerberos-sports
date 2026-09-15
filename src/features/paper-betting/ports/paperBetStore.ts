@@ -27,6 +27,8 @@ export interface PaperBetStore {
   findByIdempotencyKey(key: PaperBetKey): PaperBet | null;
   /** Apuestas filtradas por estado. */
   listByStatus(status: PaperBetStatus): PaperBet[];
+  /** Settlements finales que aún no han confirmado el envío de Telegram. */
+  listSettlementPendingNotification(): PaperBet[];
   /**
    * Resuelve una apuesta OPEN. Persiste settledAt/result/closingOdds/pnl.
    * Lanza AlreadySettledError (dominio) si ya estaba resuelta.
@@ -34,8 +36,15 @@ export interface PaperBetStore {
   settle(
     id: string,
     outcome: 'WON' | 'LOST' | 'VOID',
-    opts?: { closingOdds?: number; result?: string },
+    opts?: {
+      closingOdds?: number;
+      result?: string;
+      finalHomeGoals?: number;
+      finalAwayGoals?: number;
+    },
   ): PaperBet;
+  /** Marca durablemente el efecto externo ya enviado. */
+  markSettlementNotified(id: string): PaperBet;
 }
 
 /** La misma (cohortId, fixtureId, market, selection, modelVersion) ya existe: rechazada. */

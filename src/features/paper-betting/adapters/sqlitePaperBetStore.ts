@@ -50,7 +50,10 @@ const CREATE_TABLE = `
     settledAt TEXT,
     closingOdds REAL,
     result TEXT,
+    finalHomeGoals INTEGER,
+    finalAwayGoals INTEGER,
     pnl REAL,
+    notificationSentAt TEXT,
     UNIQUE (cohortId, fixtureId, market, selection, modelVersion)
   )
 `;
@@ -59,7 +62,8 @@ const COLUMNS =
   'id, cohortId, fixtureId, league, homeTeam, awayTeam, kickoff, snapshotAt, market, selection, ' +
   'modelVersion, modelProbability, fairMarketProbability, edge, expectedValue, bookmaker, ' +
   'placedOdds, minimumAcceptableOdds, lambdaHome, lambdaAway, lambdaTotal, stake, bankrollBefore, ' +
-  'status, createdAt, settledAt, closingOdds, result, pnl';
+  'status, createdAt, settledAt, closingOdds, result, finalHomeGoals, finalAwayGoals, pnl, ' +
+  'notificationSentAt';
 
 /**
  * Se instancia vía factory provider en `paper-betting.module.ts` (no vía
@@ -70,6 +74,7 @@ export class SqlitePaperBetStore implements PaperBetStore {
   private readonly db: Db;
   private readonly insert: ReturnType<Db['prepare']>;
   private readonly updateSettlement: ReturnType<Db['prepare']>;
+  private readonly markNotified: ReturnType<Db['prepare']>;
 
   /** `path` puede ser `:memory:` (tests) o un fichero .sqlite local. */
   constructor(path: string) {
@@ -83,12 +88,16 @@ export class SqlitePaperBetStore implements PaperBetStore {
         ':market, :selection, :modelVersion, :modelProbability, :fairMarketProbability, :edge, ' +
         ':expectedValue, :bookmaker, :placedOdds, :minimumAcceptableOdds, :lambdaHome, :lambdaAway, ' +
         ':lambdaTotal, :stake, :bankrollBefore, :status, :createdAt, :settledAt, :closingOdds, ' +
-        ':result, :pnl)',
+        ':result, :finalHomeGoals, :finalAwayGoals, :pnl, :notificationSentAt)',
     );
     this.updateSettlement = this.db.prepare(
       `UPDATE paper_bets SET status = :status, settledAt = :settledAt,
-         closingOdds = :closingOdds, result = :result, pnl = :pnl
+         closingOdds = :closingOdds, result = :result, finalHomeGoals = :finalHomeGoals,
+         finalAwayGoals = :finalAwayGoals, pnl = :pnl, notificationSentAt = NULL
        WHERE id = :id`,
+    );
+    this.markNotified = this.db.prepare(
+      'UPDATE paper_bets SET notificationSentAt = :notificationSentAt WHERE id = :id AND status != :open',
     );
   }
 
@@ -136,10 +145,26 @@ export class SqlitePaperBetStore implements PaperBetStore {
     return rows.map((row) => deserialize(row as Record<string, unknown>));
   }
 
+  listSettlementPendingNotification(): PaperBet[] {
+    const rows = this.db
+      .prepare(
+        `SELECT ${COLUMNS} FROM paper_bets
+         WHERE status IN ('WON', 'LOST', 'VOID') AND notificationSentAt IS NULL
+         ORDER BY settledAt`,
+      )
+      .all();
+    return rows.map((row) => deserialize(row as Record<string, unknown>));
+  }
+
   settle(
     id: string,
     outcome: 'WON' | 'LOST' | 'VOID',
-    opts?: { closingOdds?: number; result?: string },
+    opts?: {
+      closingOdds?: number;
+      result?: string;
+      finalHomeGoals?: number;
+      finalAwayGoals?: number;
+    },
   ): PaperBet {
     const current = this.findById(id);
     if (current === null) throw new Error(`settle: PaperBet ${id} no existe`);
@@ -150,6 +175,8 @@ export class SqlitePaperBetStore implements PaperBetStore {
       settledAt: new Date(),
       closingOdds: opts?.closingOdds,
       result: opts?.result,
+      finalHomeGoals: opts?.finalHomeGoals,
+      finalAwayGoals: opts?.finalAwayGoals,
       pnl: calculatePnl(outcome, current.stake, current.placedOdds),
     };
     this.updateSettlement.run({
@@ -158,9 +185,21 @@ export class SqlitePaperBetStore implements PaperBetStore {
       settledAt: settled.settledAt?.toISOString() ?? null,
       closingOdds: settled.closingOdds ?? null,
       result: settled.result ?? null,
+      finalHomeGoals: settled.finalHomeGoals ?? null,
+      finalAwayGoals: settled.finalAwayGoals ?? null,
       pnl: settled.pnl ?? null,
     });
     return settled;
+  }
+
+  markSettlementNotified(id: string): PaperBet {
+    const current = this.findById(id);
+    if (current === null) throw new Error(`markSettlementNotified: PaperBet ${id} no existe`);
+    if (current.status === 'OPEN')
+      throw new Error(`markSettlementNotified: PaperBet ${id} sigue OPEN`);
+    if (current.notificationSentAt !== undefined) return current;
+    this.markNotified.run({ id, notificationSentAt: new Date().toISOString(), open: 'OPEN' });
+    return this.findById(id) ?? current;
   }
 }
 
@@ -194,6 +233,9 @@ function migrateLegacySchema(db: Db): void {
     has('lambdaTotal')
       ? null
       : 'ALTER TABLE paper_bets ADD COLUMN lambdaTotal REAL NOT NULL DEFAULT 0',
+    has('notificationSentAt') ? null : 'ALTER TABLE paper_bets ADD COLUMN notificationSentAt TEXT',
+    has('finalHomeGoals') ? null : 'ALTER TABLE paper_bets ADD COLUMN finalHomeGoals INTEGER',
+    has('finalAwayGoals') ? null : 'ALTER TABLE paper_bets ADD COLUMN finalAwayGoals INTEGER',
   ];
   for (const statement of statements) {
     if (statement !== null) db.exec(statement);
@@ -230,7 +272,10 @@ function serialize(bet: PaperBet): Record<string, string | number | null> {
     settledAt: bet.settledAt?.toISOString() ?? null,
     closingOdds: bet.closingOdds ?? null,
     result: bet.result ?? null,
+    finalHomeGoals: bet.finalHomeGoals ?? null,
+    finalAwayGoals: bet.finalAwayGoals ?? null,
     pnl: bet.pnl ?? null,
+    notificationSentAt: bet.notificationSentAt?.toISOString() ?? null,
   };
 }
 
@@ -264,6 +309,12 @@ function deserialize(row: Record<string, unknown>): PaperBet {
     settledAt: row['settledAt'] === null ? undefined : new Date(row['settledAt'] as string),
     closingOdds: row['closingOdds'] === null ? undefined : (row['closingOdds'] as number),
     result: row['result'] === null ? undefined : (row['result'] as string),
+    finalHomeGoals: row['finalHomeGoals'] === null ? undefined : (row['finalHomeGoals'] as number),
+    finalAwayGoals: row['finalAwayGoals'] === null ? undefined : (row['finalAwayGoals'] as number),
     pnl: row['pnl'] === null ? undefined : (row['pnl'] as number),
+    notificationSentAt:
+      row['notificationSentAt'] === null || row['notificationSentAt'] === undefined
+        ? undefined
+        : new Date(row['notificationSentAt'] as string),
   };
 }
