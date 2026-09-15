@@ -28,13 +28,25 @@ describe('domain scope', () => {
     };
     const bet: PaperBet = {
       id: 'p1',
-      marketId: market.id,
-      predictionId: 'pred-1',
-      createdAt: new Date(),
-      stake: 10,
+      fixtureId: 1,
+      league: 'Liga Nacional',
+      homeTeam: fixture.homeTeam,
+      awayTeam: fixture.awayTeam,
+      kickoff: fixture.kickoffAt,
+      market: 'MATCH_WINNER',
       selection: 'HOME',
-      odds: quote.odds.HOME ?? 0,
+      modelVersion: 'poisson-v1',
+      modelProbability: 0.6,
+      fairMarketProbability: 0.5,
+      edge: 0.1,
+      expectedValue: 0.05,
+      bookmaker: 'local-book',
+      placedOdds: quote.odds.HOME ?? 0,
+      minimumAcceptableOdds: 2,
+      stake: 10,
+      bankrollBefore: 100,
       status: 'OPEN',
+      createdAt: new Date(),
     };
 
     expect(fixture.sport).toBe('FOOTBALL');
