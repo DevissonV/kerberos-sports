@@ -1,5 +1,5 @@
-import { healthCheck } from './common/health/health';
-import { logger } from './common/logging/logger';
+import { healthCheck } from '../shared/health/health';
+import { logger } from '../shared/logging/logger';
 
 logger.info('Kerberos Sports starting', {
   ...healthCheck(),

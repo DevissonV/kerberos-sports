@@ -1,6 +1,6 @@
-import { healthCheck } from '../src/common/health/health';
-import { logger } from '../src/common/logging/logger';
-import { config } from '../src/common/config/configuration';
+import { healthCheck } from '../src/shared/health/health';
+import { logger } from '../src/shared/logging/logger';
+import { config } from '../src/shared/config/configuration';
 
 describe('infra', () => {
   it('health check reporta PAPER / FOOTBALL', () => {
