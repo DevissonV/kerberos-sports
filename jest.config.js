@@ -2,6 +2,7 @@
 const config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
+  setupFiles: ['reflect-metadata'],
   testRegex: '(?<!\\.e2e)\\.spec\\.ts$',
   transform: { '^.+\\.(t|j)s$': 'ts-jest' },
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],

@@ -33,17 +33,31 @@ corregir la implementación o actualizar la documentación.
 
 ## Reglas de implementación
 
-- TypeScript estricto plano. **Sin NestJS**, sin DI ceremonial, sin frameworks innecesarios.
-- Arquitectura feature-first + hexagonal en `src/features/<feature>/{domain,application,ports,adapters}`.
-  El dominio vive en la feature propietaria; no crear `src/domain` global ("cajón de sastre").
+- **Kerberos Sports usa NestJS como chasis**, homólogo técnico de `bot-kerberos` (misma versión
+  mayor de NestJS y de Node). Nest solo orquesta módulos, DI de adapters y casos de uso; jamás
+  contamina el dominio: las funciones puras (`calculateEdge`, `calculateStake`, `calculateMetrics`,
+  matching, normalización) no importan `@nestjs/*`, no llevan decoradores y siguen siendo
+  testeables sin el framework (ver `test/domain.no-nest-imports.spec.ts`). Esto sigue siendo
+  **PAPER ONLY**: Nest no habilita ejecución real, solo reemplaza el bootstrap plano por
+  `ApplicationContext`/módulos.
+- Arquitectura feature-first + hexagonal en `src/features/<feature>/{domain,application,ports,adapters}`
+  - `<feature>.module.ts`. El dominio vive en la feature propietaria; no crear `src/domain` global
+    ("cajón de sastre").
 - Dominio determinista y puro: sin red, sin reloj invisible, sin persistencia.
 - Las fronteras externas se modelan como puertos (interfaces) en `ports/` con sus adaptadores en
-  `adapters/`. Puertos previstos: `FixturesProvider`, `OddsProvider`, `ResultsProvider`,
-  `PaperBetStore`.
+  `adapters/`. Puertos vigentes: `FixturesProvider`, `OddsProvider`, `ResultsProvider`,
+  `PaperBetStore`, `NotificationPort`. Aplicá hexagonal de forma **pragmática, no estricta** (igual
+  que `bot-kerberos`): un puerto se justifica cuando hay más de un caso de uso real (ej. paper vs.
+  futura ejecución real, o más de un proveedor de datos); no crear una interfaz/puerto nuevo "por si
+  acaso" para una pieza trivial con un solo consumidor y sin sustituto previsto.
 - Las funciones puras (`calculateEdge`, `calculateStake`, `calculateMetrics`) no requieren puertos
   ni interfaces.
+- Los adapters que Nest instancia vía `useFactory` (constructor manual con `new`, patrón usado en
+  todos los adapters actuales) no necesitan `@Injectable()`: solo lo llevan las clases que Nest
+  gestiona directamente en `providers` (p. ej. un `*Service` con dependencias inyectadas).
 - **Sin arquitectura ceremonial:** solo crear carpetas/archivos con contenido real. No boilerplate
-  especulativo ni carpetas vacías "para después".
+  especulativo ni carpetas vacías "para después"; no crear `<feature>.module.ts` para una feature
+  que todavía no tiene adapters/servicios reales que orquestar.
 - Aplicar el cambio mínimo que complete los criterios de la tarea; evitar abstracciones por
   anticipación.
 - Usar nombres e identificadores de código en inglés. Escribir comentarios, JSDoc, documentación y

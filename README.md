@@ -15,46 +15,75 @@ aquí no se toca nada del stack de trading: sin Binance, sin futures, sin exchan
 
 ## Qué hay hoy
 
-- Proyecto TypeScript estricto mínimo (sin NestJS, sin DB, sin RG, sin Telegram, sin APIs pagas).
-- Infra básica: configuración, logging mínimo en stdout, health check en memoria.
-- Tooling: ESLint (flat config, type-checked), Prettier, Jest/ts-jest, build con `tsc`.
-- Tests básicos que fijan el alcance (PAPER / FOOTBALL) y las entidades conceptuales.
+- **NestJS** (misma versión mayor que `bot-kerberos`) como chasis: DI + módulos orquestando
+  adapters y casos de uso. Sin servidor HTTP (worker/batch): `main.ts`, `cli/scan.ts` y
+  `cli/telegramSmoke.ts` levantan un `ApplicationContext` y lo cierran al terminar.
+- Dominio puro sin decoradores ni imports de `@nestjs/*` (scanning, opportunities, bankroll,
+  paper-betting, notifications); guardado por `test/domain.no-nest-imports.spec.ts`.
+- Adapters reales: `ApiFootballFixturesAdapter`, `OddsPapiAdapter`, `TelegramNotificationAdapter`,
+  `SqlitePaperBetStore` (SQLite local vía `node:sqlite`, cero dependencias).
+- Tooling: ESLint (flat config, type-checked), Prettier, Jest/ts-jest, build con `nest build`.
+- Tests unitarios (`npm test`) + smoke tests de Nest reales en `test/*.e2e-spec.ts`
+  (`npm run test:e2e`, requiere `NODE_OPTIONS=--experimental-vm-modules` porque NestJS 12 se
+  publica como ESM puro): `AppModule` compila, providers críticos resuelven, un
+  `ApplicationContext` levanta y cierra, y los adapters se inyectan correctamente.
 
 ## Scripts
 
 ```bash
-npm run validate   # format:check + lint + test + build
-npm run build      # tsc -> dist/
-npm test           # jest
-npm run lint       # eslint
-npm run format     # prettier --write
+npm run validate       # format:check + lint + test + build
+npm run build           # nest build -> dist/
+npm run start            # nest start (ApplicationContext, sin HTTP)
+npm run start:dev        # nest start --watch
+npm run start:prod       # node dist/main.js
+npm run scan              # build + node dist/cli/scan.js (smoke de red, requiere API keys)
+npm run telegram:smoke     # build + node dist/cli/telegramSmoke.js
+npm test                   # jest (unitarios, sin bootear Nest real)
+npm run test:e2e            # jest -c test/jest-e2e.json (bootea Nest real vía ESM)
+npm run lint                 # eslint
+npm run format                # prettier --write
 ```
 
 ## Estructura
 
-Feature-first + hexagonal (alineada con `bot-kerberos`, pero sin NestJS. Fronteras de
-infraestructura futuras `FixturesProvider` / `OddsProvider` / `ResultsProvider` /
-`PaperBetStore` irán en `ports/` + `adapters/` por feature cuando existan).
+Feature-first + hexagonal, homóloga a `bot-kerberos` (NestJS + Node misma versión mayor), aplicada
+de forma pragmática: solo hay `<feature>.module.ts` donde existen adapters/servicios reales que
+Nest deba orquestar.
 
 ```
 src/
-  features/                       # cada feature es dueña de sus entidades
-    opportunities/
-      domain/                     # Sport, Fixture, Market, OddsQuote, Prediction
-      scope.ts → FOOTBALL + mercado candidato (MATCH_WINNER)
-    paper-betting/
-      domain/                     # PaperBet
-    bankroll/
-      domain/                     # BankrollSnapshot
-    settlement/                   # futura feature de liquidación
-  shared/
-    config/                       # configuración + alcance (FOOTBALL)
-    logging/                      # logger simple stdout
-    health/                       # health check en memoria
+  main.ts                          # bootstrap batch (ApplicationContext, sin servidor HTTP)
+  app.module.ts                    # módulo raíz (ConfigModule + ScanningModule + NotificationsModule)
   cli/
-    main.ts                       # bootstrap mínimo (imprime health)
-test/                             # jest specs
-resources/temp/                   # temporales, ignorado por git excepto .gitkeep y handoffs
+    scan.ts                        # smoke de red: fixtures -> odds -> matching -> de-vig
+    telegramSmoke.ts                # smoke de Telegram
+  features/                        # cada feature es dueña de sus entidades
+    scanning/
+      domain/                      # Fixture, OddsPair, matching, normalización de nombres
+      ports/                       # FixturesProvider, OddsProvider (+ tokens Nest)
+      adapters/                    # ApiFootballFixturesAdapter, OddsPapiAdapter
+      application/                 # runScan (pipeline puro), ScanningService (orquesta puertos)
+      scanning.module.ts
+    opportunities/
+      domain/                      # Sport, Fixture, Market, OddsQuote, Prediction, gate, marketMath
+    paper-betting/
+      domain/                      # PaperBet, métricas (hitRate, ROI, CLV, Brier, log loss)
+      ports/                       # PaperBetStore (+ token Nest)
+      adapters/                    # SqlitePaperBetStore
+      paper-betting.module.ts      # no importado por AppModule hoy: sin consumidor CLI todavía
+    bankroll/
+      domain/                      # BankrollSnapshot, calculateStake
+    notifications/
+      domain/                      # formatPickNotification
+      ports/                       # NotificationPort (+ token Nest)
+      adapters/                    # TelegramNotificationAdapter
+      notifications.module.ts
+  shared/
+    config/                        # configuration.ts (config plano) + environment.ts (validación zod)
+    logging/                       # logger simple stdout
+    health/                        # health check en memoria
+test/                              # jest specs (unitarios) + *.e2e-spec.ts (Nest real, ESM)
+resources/temp/                    # temporales, ignorado por git excepto .gitkeep y handoffs
 ```
 
 ## Reglas

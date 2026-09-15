@@ -1,5 +1,8 @@
 import type { PaperBet, PaperBetStatus } from '../domain/concepts';
 
+/** Token de inyección Nest para el puerto (las interfaces TS no existen en runtime). */
+export const PAPER_BET_STORE = Symbol('PaperBetStore');
+
 /** Clave de idempotencia: ninguna estrategia debe insertar la misma apuesta dos veces. */
 export interface PaperBetKey {
   fixtureId: number;

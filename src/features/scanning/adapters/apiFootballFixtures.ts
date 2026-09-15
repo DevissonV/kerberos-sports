@@ -41,6 +41,10 @@ export function parseFixtures(payload: unknown): Fixture[] {
   }));
 }
 
+/**
+ * Se instancia vía factory provider en `scanning.module.ts` (no vía `useClass`),
+ * por lo que no necesita `@Injectable()`: Nest no gestiona su construcción.
+ */
 export class ApiFootballFixturesAdapter implements FixturesProvider {
   constructor(
     private readonly baseUrl: string,

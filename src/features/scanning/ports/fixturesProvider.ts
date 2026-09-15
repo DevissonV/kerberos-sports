@@ -2,6 +2,9 @@
 
 import type { Fixture } from '../domain/concepts';
 
+/** Token de inyección Nest para el puerto (las interfaces TS no existen en runtime). */
+export const FIXTURES_PROVIDER = Symbol('FixturesProvider');
+
 export interface FixturesProvider {
   /** Fixtures próximos (pre-match) dentro de la ventana de escaneo. 1 request idealmente. */
   upcomingFixtures(limit: number): Promise<Fixture[]>;
