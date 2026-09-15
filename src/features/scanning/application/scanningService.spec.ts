@@ -34,7 +34,7 @@ function makeService(fixtures: Fixture[]): ScanningService {
 }
 
 describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)', () => {
-  it('separa MODEL_ENABLED (Premier League) de OBSERVATION_ONLY (Colombia, LaLiga) y excluye lo desconocido', async () => {
+  it('separa MODEL_ENABLED de Colombia OBSERVATION_ONLY y excluye lo desconocido', async () => {
     const fixtures = [
       fixture('1', 39, 'England', 'Premier League'),
       fixture('2', 239, 'Colombia', 'Primera A'),
@@ -45,10 +45,10 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
 
     expect(output.rawFixtures).toBe(4);
-    expect(output.eligibleFixtures).toBe(1);
-    expect(output.fixtures).toHaveLength(1);
+    expect(output.eligibleFixtures).toBe(2);
+    expect(output.fixtures).toHaveLength(2);
     expect(output.fixtures[0]?.fixture.id).toBe('1');
-    expect(output.observationFixtures).toBe(2);
+    expect(output.observationFixtures).toBe(1);
 
     const byStatus = Object.fromEntries(
       output.byLeague.map((entry) => [entry.canonicalName, entry]),
@@ -61,16 +61,16 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
       status: 'OBSERVATION_ONLY',
       fixturesDetected: 1,
     });
-    expect(byStatus['LaLiga']).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 1 });
+    expect(byStatus['LaLiga']).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
   });
 
   it('OBSERVATION_ONLY nunca entra a decisionWindowFixtures (nunca dispara odds/QUANT)', async () => {
-    const fixtures = [fixture('1', 140, 'Spain', 'La Liga'), fixture('2', 135, 'Italy', 'Serie A')];
+    const fixtures = [fixture('1', 239, 'Colombia', 'Primera A')];
     const service = makeService(fixtures);
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
     expect(output.decisionWindowFixtures).toHaveLength(0);
     expect(output.eligibleFixtures).toBe(0);
-    expect(output.observationFixtures).toBe(2);
+    expect(output.observationFixtures).toBe(1);
   });
 
   it('MODEL_ENABLED (Premier League) si puede llegar a decisionWindowFixtures', async () => {

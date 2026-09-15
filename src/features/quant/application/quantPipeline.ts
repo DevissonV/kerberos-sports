@@ -31,7 +31,7 @@ import {
   PRIMARY_BOOKMAKER,
   PROTOCOL_COHORT_ID,
 } from '../../scanning/domain/protocol';
-import { isModelEnabled } from '../../scanning/domain/leagueUniverse';
+import { findLeagueDefinition, isModelEnabled } from '../../scanning/domain/leagueUniverse';
 import type { ScanCandidate } from '../../scanning/application/scanPipeline';
 import type { Fixture } from '../../scanning/domain/concepts';
 import type { PaperBet } from '../../paper-betting/domain/concepts';
@@ -50,6 +50,8 @@ export interface QuantPipelineDeps {
   /** Candidatos del scan ya filtrados por protocolo y ventana temporal (T-6h). */
   candidates: readonly ScanCandidate[];
   historicalMatches: readonly HistoricalMatch[];
+  /** Resuelve el histórico propio de cada liga; evita cruzar baselines entre cohortes. */
+  historicalMatchesForFixture?: (fixture: Fixture) => readonly HistoricalMatch[];
   /** Instante de la corrida (UTC): snapshot y createdAt de las PaperBets. */
   now: Date;
   initialBankroll: number;
@@ -123,13 +125,32 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
       rejected.NO_BOOKMAKER += 1;
       continue;
     }
+    const historicalMatches =
+      deps.historicalMatchesForFixture?.(candidate.fixture) ?? deps.historicalMatches;
+    // Alias determinista suficiente: ambos equipos deben existir en el histórico de SU liga.
+    if (
+      deps.historicalMatchesForFixture !== undefined &&
+      (!historicalMatches.some(
+        (match) =>
+          match.homeTeam === candidate.fixture.homeTeam ||
+          match.awayTeam === candidate.fixture.homeTeam,
+      ) ||
+        !historicalMatches.some(
+          (match) =>
+            match.homeTeam === candidate.fixture.awayTeam ||
+            match.awayTeam === candidate.fixture.awayTeam,
+        ))
+    ) {
+      rejected.MODEL_DATA += 1;
+      continue;
+    }
     const poisson = computePoissonV1({
       fixtureId: candidate.fixture.id,
       league: candidate.fixture.league,
       home: candidate.fixture.homeTeam,
       away: candidate.fixture.awayTeam,
       snapshotAt: candidate.snapshotAt,
-      historicalMatches: deps.historicalMatches,
+      historicalMatches,
     });
     if (poisson.status !== 'OK') {
       rejected.MODEL_DATA += 1;
@@ -225,8 +246,17 @@ function currentBankrollFor(deps: QuantPipelineDeps, newStakesSum: number): numb
 }
 
 export function idempotencyKeyOf(side: QuantSideEvaluation, fixture: Fixture): PaperBetKey {
+  const cohortId = findLeagueDefinition(fixture)?.cohortId;
+  if (cohortId === null || cohortId === undefined)
+    return {
+      cohortId: PROTOCOL_COHORT_ID,
+      fixtureId: Number(fixture.id),
+      market: MARKET,
+      selection: side.selection,
+      modelVersion: POISSON_MODEL_VERSION,
+    };
   return {
-    cohortId: PROTOCOL_COHORT_ID,
+    cohortId,
     fixtureId: Number(fixture.id),
     market: MARKET,
     selection: side.selection,
@@ -243,7 +273,7 @@ function buildPaperBet(
   const { side, model, candidate, pair } = entry;
   return {
     id: '',
-    cohortId: PROTOCOL_COHORT_ID,
+    cohortId: findLeagueDefinition(candidate.fixture)?.cohortId ?? PROTOCOL_COHORT_ID,
     fixtureId: Number(candidate.fixture.id),
     league: candidate.fixture.league,
     homeTeam: candidate.fixture.homeTeam,

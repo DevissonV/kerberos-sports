@@ -60,6 +60,13 @@ export function evaluateProtocolEligibility(
 ): ProtocolExclusionReason | null {
   if (fixture.leagueId !== PROTOCOL_LEAGUE_ID) return 'WRONG_LEAGUE_ID';
   if (fixture.country !== PROTOCOL_COUNTRY) return 'WRONG_COUNTRY';
+  return evaluateCompetitionSafety(fixture);
+}
+
+/** Defensa reutilizable para las cohortes multiliga; no decide identidad de liga. */
+export function evaluateCompetitionSafety(
+  fixture: Pick<Fixture, 'league' | 'homeTeam' | 'awayTeam'>,
+): ProtocolExclusionReason | null {
   const leagueName = fixture.league.toLowerCase();
   if (EXCLUDED_COMPETITION_NAME_TOKENS.some((token) => leagueName.includes(token))) {
     return 'EXCLUDED_COMPETITION_TYPE';

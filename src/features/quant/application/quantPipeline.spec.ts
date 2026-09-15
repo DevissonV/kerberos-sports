@@ -245,9 +245,9 @@ describe('runQuantPipeline', () => {
         historicalMatches: overHistory(),
         candidates: [
           candidate('9001', 'Real Madrid', 'Sevilla', [pairFrom(0.5268, 1.998)], {
-            league: 'La Liga',
-            leagueId: 140,
-            country: 'Spain',
+            league: 'Primera A',
+            leagueId: 239,
+            country: 'Colombia',
           }),
         ],
       }),

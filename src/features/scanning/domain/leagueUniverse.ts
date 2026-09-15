@@ -12,7 +12,7 @@ import {
   PROTOCOL_COHORT_ID,
   PROTOCOL_LEAGUE_ID,
   PROTOCOL_COUNTRY,
-  evaluateProtocolEligibility,
+  evaluateCompetitionSafety,
 } from './protocol';
 import { POISSON_MODEL_VERSION } from '../../poisson/domain/concepts';
 import type { Fixture } from './concepts';
@@ -26,6 +26,8 @@ export interface LeagueDefinition {
   status: LeagueStatus;
   cohortId: string | null;
   modelVersion: string | null;
+  /** Dataset versionado local; `null` mantiene la liga fuera de modelo. */
+  historicalDataset: string | null;
 }
 
 /** Universo V1: 1 liga con modelo validado + 6 ligas en observación pura. */
@@ -37,6 +39,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     status: 'MODEL_ENABLED',
     cohortId: PROTOCOL_COHORT_ID,
     modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'premier-league',
   },
   {
     leagueId: 239,
@@ -45,46 +48,52 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     status: 'OBSERVATION_ONLY',
     cohortId: null,
     modelVersion: null,
+    historicalDataset: null,
   },
   {
     leagueId: 140,
     country: 'Spain',
     canonicalName: 'LaLiga',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C03-ESP',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'la-liga',
   },
   {
     leagueId: 135,
     country: 'Italy',
     canonicalName: 'Serie A',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C04-ITA',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'serie-a',
   },
   {
     leagueId: 78,
     country: 'Germany',
     canonicalName: 'Bundesliga',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C05-GER',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'bundesliga',
   },
   {
     leagueId: 61,
     country: 'France',
     canonicalName: 'Ligue 1',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C06-FRA',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'ligue-1',
   },
   {
     leagueId: 88,
     country: 'Netherlands',
     canonicalName: 'Eredivisie',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C07-NED',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'eredivisie',
   },
 ];
 
@@ -117,7 +126,7 @@ export function isModelEnabled(
   fixture: Pick<Fixture, 'leagueId' | 'country' | 'league' | 'homeTeam' | 'awayTeam'>,
 ): boolean {
   if (resolveLeagueStatus(fixture) !== 'MODEL_ENABLED') return false;
-  return evaluateProtocolEligibility(fixture) === null;
+  return evaluateCompetitionSafety(fixture) === null;
 }
 
 export interface LeagueFixtureCount {

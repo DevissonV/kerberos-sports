@@ -15,6 +15,7 @@ import { NOTIFICATION_PORT } from '../../notifications/ports/notificationPort';
 import type { NotificationPort } from '../../notifications/ports/notificationPort';
 import { formatQuantPaperMessage } from '../../notifications/domain/quantMessage';
 import { loadLocalHistoricalMatches } from '../../poisson/adapters/localCsvHistoricalMatches';
+import { historicalMatchesForLeague } from '../../poisson/adapters/historicalLeagueRegistry';
 import type { HistoricalMatch } from '../../poisson/domain/concepts';
 import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
@@ -68,6 +69,8 @@ export class QuantScanService {
     const result = runQuantPipeline({
       candidates: scan.report.candidates,
       historicalMatches,
+      historicalMatchesForFixture: (fixture) =>
+        historicalMatchesForLeague(fixture.leagueId ?? -1, fixture.country ?? ''),
       now,
       initialBankroll: INITIAL_BANKROLL,
       openStakesSum: bankroll.openStakesSum,

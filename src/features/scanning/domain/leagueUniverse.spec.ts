@@ -23,32 +23,38 @@ function fixture(overrides: Partial<Fixture> = {}): Fixture {
 }
 
 describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
-  it('Premier League es la unica MODEL_ENABLED, con cohorte KSS-V1-C01', () => {
+  it('Premier League conserva KSS-V1-C01 y Europa tiene cohortes independientes', () => {
     const premierLeague = LEAGUE_UNIVERSE.find((league) => league.leagueId === 39);
     expect(premierLeague?.status).toBe('MODEL_ENABLED');
     expect(premierLeague?.cohortId).toBe('KSS-V1-C01');
     const modelEnabled = LEAGUE_UNIVERSE.filter((league) => league.status === 'MODEL_ENABLED');
-    expect(modelEnabled).toHaveLength(1);
+    expect(modelEnabled).toHaveLength(6);
+    expect(modelEnabled.map((league) => league.cohortId)).toEqual([
+      'KSS-V1-C01',
+      'KSS-V1-C03-ESP',
+      'KSS-V1-C04-ITA',
+      'KSS-V1-C05-GER',
+      'KSS-V1-C06-FRA',
+      'KSS-V1-C07-NED',
+    ]);
   });
 
   it('el resto del universo V1 es OBSERVATION_ONLY sin cohorte', () => {
     const observationOnly = LEAGUE_UNIVERSE.filter(
       (league) => league.status === 'OBSERVATION_ONLY',
     );
-    expect(observationOnly).toHaveLength(6);
+    expect(observationOnly).toHaveLength(1);
     for (const league of observationOnly) {
       expect(league.cohortId).toBeNull();
       expect(league.modelVersion).toBeNull();
     }
   });
 
-  it('Colombia Primera A (Liga BetPlay) y LaLiga son OBSERVATION_ONLY', () => {
+  it('Colombia permanece OBSERVATION_ONLY y LaLiga tiene modelo', () => {
     expect(resolveLeagueStatus(fixture({ leagueId: 239, country: 'Colombia' }))).toBe(
       'OBSERVATION_ONLY',
     );
-    expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe(
-      'OBSERVATION_ONLY',
-    );
+    expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe('MODEL_ENABLED');
   });
 
   it('liga fuera del universo (copa, youth, seleccion) es EXCLUDED, fail-closed', () => {
@@ -64,9 +70,11 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(isObservable(fixture({ leagueId: 2, country: 'World' }))).toBe(false);
   });
 
-  it('isModelEnabled: solo Premier League, y respeta la defensa de protocolo (reserva/cup)', () => {
+  it('isModelEnabled: liga habilitada y defensa de protocolo (reserva/cup)', () => {
     expect(isModelEnabled(fixture())).toBe(true);
-    expect(isModelEnabled(fixture({ leagueId: 140, country: 'Spain' }))).toBe(false);
+    expect(isModelEnabled(fixture({ leagueId: 140, country: 'Spain', league: 'LaLiga' }))).toBe(
+      true,
+    );
     expect(isModelEnabled(fixture({ awayTeam: 'Chelsea II' }))).toBe(false);
     expect(isModelEnabled(fixture({ league: 'FA Cup' }))).toBe(false);
   });

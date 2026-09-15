@@ -64,9 +64,9 @@ describe('scan pipeline con adapters fake', () => {
       Promise.resolve([
         fixture('f1', 'Arsenal', 'Chelsea FC', KICKOFF),
         fixture('f2', 'Real Madrid', 'Sevilla FC', '2026-09-18T21:30:00Z', {
-          league: 'La Liga',
-          leagueId: 140,
-          country: 'Spain',
+          league: 'Primera A',
+          leagueId: 239,
+          country: 'Colombia',
         }),
       ]);
     const fetchOddsEvents = (): Promise<OddsEvent[]> =>

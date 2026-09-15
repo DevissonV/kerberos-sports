@@ -70,7 +70,6 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
   const now = deps.now ?? new Date();
 
   const fixturesFetched = await deps.fetchFixtures();
-  const oddsEvents = await deps.fetchOddsEvents();
 
   const MAX_EXAMPLES_PER_CATEGORY = 5;
 
@@ -98,7 +97,24 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
     });
   }
 
-  const matchResults = matchFixturesWithOdds(fixtures, oddsEvents);
+  // Primero filtro por cohorte y ventana; las ligas en observación no consumen OddsPapi.
+  const fixtureWindows = fixtures.map((fixture) => ({
+    fixture,
+    status: evaluateDecisionWindow(fixture.kickoffAt, now),
+  }));
+  const modelWindowFixtures = fixtureWindows
+    .filter((entry) => entry.status === 'ELIGIBLE_AT_DECISION_WINDOW')
+    .map((entry) => entry.fixture);
+  for (const entry of fixtureWindows.filter(
+    (entry) => entry.status !== 'ELIGIBLE_AT_DECISION_WINDOW',
+  )) {
+    logs.push({
+      level: 'INFO',
+      message: `${entry.status}: ${entry.fixture.homeTeam} vs ${entry.fixture.awayTeam}`,
+    });
+  }
+  const oddsEvents = modelWindowFixtures.length === 0 ? [] : await deps.fetchOddsEvents();
+  const matchResults = matchFixturesWithOdds(modelWindowFixtures, oddsEvents);
   const matched = matchResults.filter((result) => result.status === 'MATCHED' && result.fixture);
 
   // UNMATCHED es el caso esperado cuando el universo de odds (global) es más
@@ -133,25 +149,16 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
   // (ahorra presupuesto de requests) y nunca generan candidatos.
   const windowEvaluations = matched.map((result) => ({
     result,
-    status: evaluateDecisionWindow((result.fixture as Fixture).kickoffAt, now),
+    status: 'ELIGIBLE_AT_DECISION_WINDOW' as const,
   }));
   const temporalEligible = windowEvaluations.filter(
     (entry) => entry.status === 'ELIGIBLE_AT_DECISION_WINDOW',
   );
   const temporalExcluded = {
-    tooEarly: windowEvaluations.filter((entry) => entry.status === 'TOO_EARLY').length,
-    missedWindow: windowEvaluations.filter((entry) => entry.status === 'MISSED_WINDOW').length,
-    started: windowEvaluations.filter((entry) => entry.status === 'STARTED').length,
+    tooEarly: fixtureWindows.filter((entry) => entry.status === 'TOO_EARLY').length,
+    missedWindow: fixtureWindows.filter((entry) => entry.status === 'MISSED_WINDOW').length,
+    started: fixtureWindows.filter((entry) => entry.status === 'STARTED').length,
   };
-  for (const entry of windowEvaluations) {
-    if (entry.status === 'ELIGIBLE_AT_DECISION_WINDOW') continue;
-    const fixture = entry.result.fixture as Fixture;
-    logs.push({
-      level: 'INFO',
-      message: `${entry.status}: ${fixture.homeTeam} vs ${fixture.awayTeam}`,
-    });
-  }
-
   const matchedPairs = await deps.fetchOddsPairs(
     temporalEligible.map((entry) => entry.result.oddsEvent),
   );

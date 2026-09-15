@@ -40,7 +40,10 @@ function splitCsvLine(line: string): string[] {
  * aliases se descartan silenciosamente: no son errores del parser, son datos fuera de alcance
  * de la cohorte (p. ej. abandono de temporada, encabezado repetido).
  */
-export function parseFootballDataCsv(csvContent: string): HistoricalMatch[] {
+export function parseFootballDataCsv(
+  csvContent: string,
+  resolveTeam: (name: string) => string | undefined = resolveCanonicalTeamName,
+): HistoricalMatch[] {
   const withoutBom = csvContent.charCodeAt(0) === 0xfeff ? csvContent.slice(1) : csvContent;
   const lines = withoutBom
     .split(/\r?\n/)
@@ -77,8 +80,8 @@ export function parseFootballDataCsv(csvContent: string): HistoricalMatch[] {
     const homeGoals = parseGoals(homeGoalsRaw);
     const awayGoals = parseGoals(awayGoalsRaw);
     const result = parseResult(resultRaw);
-    const homeTeam = resolveCanonicalTeamName(homeRaw.trim());
-    const awayTeam = resolveCanonicalTeamName(awayRaw.trim());
+    const homeTeam = resolveTeam(homeRaw.trim());
+    const awayTeam = resolveTeam(awayRaw.trim());
 
     if (
       date === undefined ||
