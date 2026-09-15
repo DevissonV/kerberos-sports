@@ -1,7 +1,7 @@
 /**
  * Adapter HTTP para API-Football (api-football.com, v3).
- * Traduce el JSON del proveedor al modelo interno. Un solo request por corrida
- * (`/fixtures?next=N`): sin polling.
+ * Traduce el JSON del proveedor al modelo interno. Consume `/fixtures?date=…`
+ * por dia de una ventana corta: el plan Free no permite el parámetro `next`.
  */
 
 import type { Fixture } from '../domain/concepts';
@@ -46,16 +46,33 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    /**
+     * Dias de la ventana de busqueda. El plan Free rechaza `next`, por lo que
+     * se consulta por fecha (`date=YYYY-MM-DD`) desde hoy hasta hoy + N - 1.
+     */
+    private readonly dateWindowDays = 2,
   ) {}
 
   async upcomingFixtures(limit: number): Promise<Fixture[]> {
-    const url = `${this.baseUrl}/fixtures?next=${encodeURIComponent(String(limit))}`;
-    const response = await this.fetchImpl(url, {
-      headers: { 'x-apisports-key': this.apiKey },
+    const days = Array.from({ length: this.dateWindowDays }, (_, i) => {
+      const day = new Date();
+      day.setUTCDate(day.getUTCDate() + i);
+      return day.toISOString().slice(0, 10);
     });
-    if (!response.ok) {
-      throw new FixturesProviderError(`API-Football respondio HTTP ${response.status}`);
-    }
-    return parseFixtures(await response.json());
+    const bodies = await Promise.all(
+      days.map(async (day) => {
+        const url = `${this.baseUrl}/fixtures?date=${day}`;
+        const response = await this.fetchImpl(url, {
+          headers: { 'x-apisports-key': this.apiKey },
+        });
+        if (!response.ok) {
+          throw new FixturesProviderError(`API-Football respondio HTTP ${response.status}`);
+        }
+        return (await response.json()) as unknown;
+      }),
+    );
+    return parseFixtures({
+      response: bodies.flatMap((body) => assertResponseShape(body).response),
+    }).slice(0, limit);
   }
 }
