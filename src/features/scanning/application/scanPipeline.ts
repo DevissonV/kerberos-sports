@@ -57,18 +57,32 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
   const matchResults = matchFixturesWithOdds(fixtures, oddsEvents);
   const matched = matchResults.filter((result) => result.status === 'MATCHED' && result.fixture);
 
-  for (const result of matchResults) {
-    if (result.status === 'UNMATCHED') {
-      logs.push({
-        level: 'WARN',
-        message: `UNMATCHED: ${result.oddsEvent.homeTeam} vs ${result.oddsEvent.awayTeam} (${result.reason ?? 'sin detalle'})`,
-      });
-    } else if (result.status === 'AMBIGUOUS') {
-      logs.push({
-        level: 'WARN',
-        message: `AMBIGUOUS: ${result.oddsEvent.homeTeam} vs ${result.oddsEvent.awayTeam} (${result.reason ?? 'sin detalle'})`,
-      });
-    }
+  // UNMATCHED es el caso esperado cuando el universo de odds (global) es más
+  // amplio que la ventana de fixtures consultada: no es una anomalía por sí
+  // mismo, así que se resume (INFO + máx. 5 ejemplos) en vez de un WARN por
+  // evento. AMBIGUOUS sí es una anomalía real de datos y se mantiene en WARN,
+  // también con tope de 5 ejemplos para no inundar el log.
+  const MAX_EXAMPLES_PER_CATEGORY = 5;
+  const unmatched = matchResults.filter((result) => result.status === 'UNMATCHED');
+  const ambiguous = matchResults.filter((result) => result.status === 'AMBIGUOUS');
+
+  for (const result of unmatched.slice(0, MAX_EXAMPLES_PER_CATEGORY)) {
+    logs.push({
+      level: 'INFO',
+      message: `UNMATCHED: ${result.oddsEvent.homeTeam} vs ${result.oddsEvent.awayTeam} (${result.reason ?? 'sin detalle'})`,
+    });
+  }
+  if (unmatched.length > 0) {
+    logs.push({ level: 'INFO', message: `UNMATCHED summary: ${unmatched.length} eventos` });
+  }
+  for (const result of ambiguous.slice(0, MAX_EXAMPLES_PER_CATEGORY)) {
+    logs.push({
+      level: 'WARN',
+      message: `AMBIGUOUS: ${result.oddsEvent.homeTeam} vs ${result.oddsEvent.awayTeam} (${result.reason ?? 'sin detalle'})`,
+    });
+  }
+  if (ambiguous.length > 0) {
+    logs.push({ level: 'WARN', message: `AMBIGUOUS summary: ${ambiguous.length} eventos` });
   }
 
   const matchedPairs = await deps.fetchOddsPairs(matched.map((result) => result.oddsEvent));
