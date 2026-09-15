@@ -1,4 +1,5 @@
 import { validateEnvironment } from './environment';
+import { createConfig } from './configuration';
 
 describe('validateEnvironment', () => {
   it('aplica defaults seguros con el entorno vacío', () => {
@@ -30,5 +31,19 @@ describe('validateEnvironment', () => {
     expect(parsed.ODDSPAPI_KEY).toBe('another-key');
     expect(parsed.TELEGRAM_BOT_TOKEN).toBe('bot-token');
     expect(parsed.TELEGRAM_CHAT_ID).toBe('123');
+  });
+
+  it('usa PAPER_BETS_DB_PATH cuando está definido y conserva el fallback local', () => {
+    const previous = process.env.PAPER_BETS_DB_PATH;
+    try {
+      delete process.env.PAPER_BETS_DB_PATH;
+      expect(createConfig().paperBetsDbPath).toBe('data/kerberos-sports.db');
+
+      process.env.PAPER_BETS_DB_PATH = '/data/kerberos-sports.db';
+      expect(createConfig().paperBetsDbPath).toBe('/data/kerberos-sports.db');
+    } finally {
+      if (previous === undefined) delete process.env.PAPER_BETS_DB_PATH;
+      else process.env.PAPER_BETS_DB_PATH = previous;
+    }
   });
 });

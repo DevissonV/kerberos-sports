@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { config } from './shared/config/configuration';
+import { createConfig } from './shared/config/configuration';
 import { validateEnvironment } from './shared/config/environment';
 import { NotificationsModule } from './features/notifications/notifications.module';
 import { ScanningModule } from './features/scanning/scanning.module';
@@ -18,7 +18,7 @@ import { ScanningModule } from './features/scanning/scanning.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [() => config],
+      load: [createConfig],
       validate: validateEnvironment,
     }),
     ScanningModule,

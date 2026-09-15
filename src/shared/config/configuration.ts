@@ -44,19 +44,23 @@ function optionalEnv(name: string): string | undefined {
   return value && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-export const config: AppConfig = {
-  appName: 'kerberos-sports',
-  mode: 'PAPER',
-  sport: 'FOOTBALL',
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  apiFootballKey: optionalEnv('API_FOOTBALL_KEY'),
-  apiFootballBaseUrl: optionalEnv('API_FOOTBALL_BASE_URL') ?? 'https://v3.football.api-sports.io',
-  oddsPapiKey: optionalEnv('ODDSPAPI_KEY'),
-  oddsPapiBaseUrl: optionalEnv('ODDSPAPI_BASE_URL') ?? 'https://api.oddspapi.io',
-  telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
-  telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
-  paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',
-};
+export function createConfig(): AppConfig {
+  return {
+    appName: 'kerberos-sports',
+    mode: 'PAPER',
+    sport: 'FOOTBALL',
+    nodeEnv: process.env.NODE_ENV ?? 'development',
+    apiFootballKey: optionalEnv('API_FOOTBALL_KEY'),
+    apiFootballBaseUrl: optionalEnv('API_FOOTBALL_BASE_URL') ?? 'https://v3.football.api-sports.io',
+    oddsPapiKey: optionalEnv('ODDSPAPI_KEY'),
+    oddsPapiBaseUrl: optionalEnv('ODDSPAPI_BASE_URL') ?? 'https://api.oddspapi.io',
+    telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
+    telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
+    paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',
+  };
+}
+
+export const config: AppConfig = createConfig();
 
 /**
  * Devuelve una copia del entorno con los valores de claves/secrets reemplazados

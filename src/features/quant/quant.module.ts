@@ -11,7 +11,7 @@
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { config } from '../../shared/config/configuration';
+import { createConfig } from '../../shared/config/configuration';
 import { validateEnvironment } from '../../shared/config/environment';
 import { ScanningModule } from '../scanning/scanning.module';
 import { PaperBettingModule } from '../paper-betting/paper-betting.module';
@@ -27,7 +27,7 @@ import { QuantScanService } from './application/quantScanService';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [() => config],
+      load: [createConfig],
       validate: validateEnvironment,
     }),
     ScanningModule,

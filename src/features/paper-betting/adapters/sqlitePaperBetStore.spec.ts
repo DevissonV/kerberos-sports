@@ -137,6 +137,23 @@ describe('SqlitePaperBetStore', () => {
     expect(settled.pnl).toBeCloseTo(0);
   });
 
+  it('crea el directorio, la DB y conserva datos al reabrirla', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kss-paperbets-'));
+    const dbPath = join(dir, 'nested', 'kerberos-sports.db');
+    const first = new SqlitePaperBetStore(dbPath);
+    const bet = makeBet();
+    first.save(bet);
+    first.close();
+
+    const reopened = new SqlitePaperBetStore(dbPath);
+    try {
+      expect(reopened.findById(bet.id)).toEqual(bet);
+    } finally {
+      reopened.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('doble settlement rechazado con AlreadySettledError', () => {
     store.save(makeBet());
     store.settle('b1', 'WON');
