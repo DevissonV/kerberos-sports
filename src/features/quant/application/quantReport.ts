@@ -42,6 +42,7 @@ export function renderQuantRun(summary: QuantScanSummary): string {
   lines.push(`PROTOCOL: ${report.excludedByProtocol}`);
   lines.push(`TEMPORAL: ${temporalRejected}`);
   lines.push(`NO_ODDS: ${noOdds}`);
+  lines.push(`LEAGUE_NOT_ENABLED: ${result.rejected.LEAGUE_NOT_ENABLED}`);
   lines.push(`MODEL_DATA: ${result.rejected.MODEL_DATA}`);
   lines.push(`NO_BOOKMAKER: ${result.rejected.NO_BOOKMAKER}`);
   lines.push(`EDGE: ${result.rejected.EDGE}`);

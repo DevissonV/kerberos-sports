@@ -9,7 +9,7 @@ import type { Fixture, OddsPair } from '../domain/concepts';
 import { decisionAtFromKickoff, evaluateDecisionWindow } from '../domain/decisionWindow';
 import { matchFixturesWithOdds } from '../domain/matching';
 import type { MatchResult, OddsEvent } from '../domain/matching';
-import { evaluateProtocolEligibility } from '../domain/protocol';
+import { isModelEnabled } from '../domain/leagueUniverse';
 
 export type ModelLabel = 'NOT_YET_AVAILABLE' | 'BASELINE';
 
@@ -74,27 +74,27 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
 
   const MAX_EXAMPLES_PER_CATEGORY = 5;
 
-  // Filtro de universo de la cohorte KSS-V1-C01: solo Premier League inglesa
-  // (leagueId+país, nunca por nombre). Fixtures excluidos NUNCA entran al matching.
+  // Model gate: este pipeline (odds -> matching -> de-vig -> ScanCandidate) solo corre
+  // para fixtures de una liga MODEL_ENABLED (hoy: Premier League, cohorte KSS-V1-C01).
+  // Ligas OBSERVATION_ONLY se descubren/cachean en el fixtures provider, pero NUNCA llegan
+  // aquí: fail-closed, nunca piden odds ni generan candidatos QUANT/PaperBet.
   const eligibility = fixturesFetched.map((fixture) => ({
     fixture,
-    reason: evaluateProtocolEligibility(fixture),
+    eligible: isModelEnabled(fixture),
   }));
-  const fixtures = eligibility
-    .filter((entry) => entry.reason === null)
-    .map((entry) => entry.fixture);
-  const excludedByProtocol = eligibility.filter((entry) => entry.reason !== null);
+  const fixtures = eligibility.filter((entry) => entry.eligible).map((entry) => entry.fixture);
+  const excludedByProtocol = eligibility.filter((entry) => !entry.eligible);
 
   for (const entry of excludedByProtocol.slice(0, MAX_EXAMPLES_PER_CATEGORY)) {
     logs.push({
       level: 'INFO',
-      message: `EXCLUDED_BY_PROTOCOL: ${entry.fixture.homeTeam} vs ${entry.fixture.awayTeam} (${entry.reason})`,
+      message: `NOT_MODEL_ENABLED: ${entry.fixture.homeTeam} vs ${entry.fixture.awayTeam}`,
     });
   }
   if (excludedByProtocol.length > 0) {
     logs.push({
       level: 'INFO',
-      message: `EXCLUDED_BY_PROTOCOL summary: ${excludedByProtocol.length} fixtures`,
+      message: `NOT_MODEL_ENABLED summary: ${excludedByProtocol.length} fixtures`,
     });
   }
 

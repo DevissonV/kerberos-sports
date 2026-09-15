@@ -24,8 +24,10 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
       Promise.resolve({
         rawFixtures: 0,
         eligibleFixtures: 0,
+        observationFixtures: 0,
         fixtures: [],
         decisionWindowFixtures: [],
+        byLeague: [],
       }),
   };
   const settlement = {
@@ -82,7 +84,11 @@ describe('observabilidad de REFINEMENT_MODE', () => {
     for (const field of [
       'rawFixtures=0',
       'eligibleFixtures=0',
+      'observationFixtures=0',
       'decisionWindowFixtures=0',
+      'DISCOVERED_FIXTURES=0',
+      'OBSERVATION_FIXTURES=0',
+      'MODEL_ENABLED_FIXTURES=0',
       'fullOddsScans=0',
       'oddsPapiRequests=0',
       'poissonModeled=0',
@@ -106,12 +112,27 @@ describe('observabilidad de REFINEMENT_MODE', () => {
           Promise.resolve({
             rawFixtures: 2,
             eligibleFixtures: 1,
+            observationFixtures: 1,
             fixtures: [],
             decisionWindowFixtures: [
               {
                 fixture: { id: 'f1' },
                 decisionAt: NOW,
                 needsSnapshot: true,
+              },
+            ],
+            byLeague: [
+              {
+                leagueId: 39,
+                canonicalName: 'Premier League',
+                status: 'MODEL_ENABLED',
+                fixturesDetected: 1,
+              },
+              {
+                leagueId: 239,
+                canonicalName: 'Liga BetPlay',
+                status: 'OBSERVATION_ONLY',
+                fixturesDetected: 1,
               },
             ],
           }),
@@ -124,6 +145,7 @@ describe('observabilidad de REFINEMENT_MODE', () => {
     expect(summary).toMatchObject({
       rawFixtures: 2,
       eligibleFixtures: 1,
+      observationFixtures: 1,
       decisionWindowFixtures: 1,
       fullOddsScans: 1,
       oddsPapiRequests: 3,
@@ -132,6 +154,24 @@ describe('observabilidad de REFINEMENT_MODE', () => {
       paperBetsCreated: 2,
       lunaSelected: 1,
       lunaCalls: 1,
+    });
+    const modelEnabledLeague = summary.byLeague.find((entry) => entry.status === 'MODEL_ENABLED');
+    const observationLeague = summary.byLeague.find((entry) => entry.status === 'OBSERVATION_ONLY');
+    expect(modelEnabledLeague).toMatchObject({
+      league: 'Premier League',
+      fixturesDetected: 1,
+      modelEligible: 1,
+      oddsRequested: 3,
+      quantCandidates: 1,
+      paperBets: 2,
+    });
+    expect(observationLeague).toMatchObject({
+      league: 'Liga BetPlay',
+      fixturesDetected: 1,
+      modelEligible: 0,
+      oddsRequested: 0,
+      quantCandidates: 0,
+      paperBets: 0,
     });
   });
 
@@ -175,7 +215,20 @@ describe('observabilidad de REFINEMENT_MODE', () => {
       precheckOnly: false,
       rawFixtures: 1,
       eligibleFixtures: 1,
+      observationFixtures: 0,
       decisionWindowFixtures: 1,
+      byLeague: [
+        {
+          leagueId: 39,
+          league: 'Premier League',
+          status: 'MODEL_ENABLED',
+          fixturesDetected: 1,
+          modelEligible: 1,
+          oddsRequested: 2,
+          quantCandidates: 1,
+          paperBets: 1,
+        },
+      ],
       fullOddsScans: 1,
       oddsPapiRequests: 2,
       apiFootballRequests: 1,

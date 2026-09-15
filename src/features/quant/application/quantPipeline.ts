@@ -31,6 +31,7 @@ import {
   PRIMARY_BOOKMAKER,
   PROTOCOL_COHORT_ID,
 } from '../../scanning/domain/protocol';
+import { isModelEnabled } from '../../scanning/domain/leagueUniverse';
 import type { ScanCandidate } from '../../scanning/application/scanPipeline';
 import type { Fixture } from '../../scanning/domain/concepts';
 import type { PaperBet } from '../../paper-betting/domain/concepts';
@@ -64,6 +65,8 @@ export interface PreparedQuantBet {
 }
 
 export interface QuantRejectedBuckets {
+  /** Liga sin modelo validado (`status !== MODEL_ENABLED`): fail-closed, nunca corre Poisson. */
+  LEAGUE_NOT_ENABLED: number;
   MODEL_DATA: number;
   NO_BOOKMAKER: number;
   EDGE: number;
@@ -88,6 +91,7 @@ export interface QuantPipelineResult {
 
 export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
   const rejected: QuantRejectedBuckets = {
+    LEAGUE_NOT_ENABLED: 0,
     MODEL_DATA: 0,
     NO_BOOKMAKER: 0,
     EDGE: 0,
@@ -107,6 +111,13 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
   const bucket: QuantGateEntry[] = [];
 
   for (const candidate of candidatesByFixture.values()) {
+    // Model gate (defensa en profundidad): aunque el candidato ya llegó filtrado por
+    // `scanPipeline`, esta corrida nunca ejecuta Poisson/QUANT/PaperBet para una liga que
+    // no esté MODEL_ENABLED. Fail-closed.
+    if (!isModelEnabled(candidate.fixture)) {
+      rejected.LEAGUE_NOT_ENABLED += 1;
+      continue;
+    }
     const pair = choosePair(candidate.pairs);
     if (pair === undefined) {
       rejected.NO_BOOKMAKER += 1;

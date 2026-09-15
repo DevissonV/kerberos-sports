@@ -100,6 +100,33 @@ describe('upcomingFixtures ventana por dia', () => {
     ]);
   });
 
+  it('universo V1: conserva OBSERVATION_ONLY (Colombia, LaLiga) y descarta ligas fuera del universo', async () => {
+    const response = [
+      fixtureEntry(1, '2026-09-15T18:00:00Z', ['Arsenal', 'Chelsea']),
+      {
+        ...fixtureEntry(2, '2026-09-15T19:00:00Z', ['Millonarios', 'Nacional']),
+        league: { id: 239, name: 'Primera A', country: 'Colombia' },
+      },
+      {
+        ...fixtureEntry(3, '2026-09-15T20:00:00Z', ['Real Madrid', 'Sevilla FC']),
+        league: { id: 140, name: 'La Liga', country: 'Spain' },
+      },
+      {
+        ...fixtureEntry(4, '2026-09-15T21:00:00Z', ['England U21', 'France U21']),
+        league: { id: 38, name: 'UEFA U21 Championship', country: 'Europe' },
+      },
+    ];
+    const adapter = new ApiFootballFixturesAdapter(
+      'https://x',
+      'k',
+      jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ response }) }),
+      1,
+    );
+    const fixtures = await adapter.upcomingFixtures(20);
+    expect(fixtures.map((f) => f.id)).toEqual(['1', '2', '3']);
+    expect(fixtures.find((f) => f.id === '2')?.leagueId).toBe(239);
+  });
+
   it('usa cache durable mientras el TTL de seis horas siga vigente', async () => {
     let now = new Date('2026-09-15T00:00:00Z');
     const fetchImpl = jest.fn().mockResolvedValue({

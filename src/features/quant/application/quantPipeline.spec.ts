@@ -47,7 +47,12 @@ function historical(
   return { date, homeTeam: home, awayTeam: away, homeGoals, awayGoals, result };
 }
 
-function fixture(teamSuffix: string, home: string, away: string): Fixture {
+function fixture(
+  teamSuffix: string,
+  home: string,
+  away: string,
+  overrides: Partial<Fixture> = {},
+): Fixture {
   return {
     id: teamSuffix,
     sport: 'FOOTBALL',
@@ -58,6 +63,7 @@ function fixture(teamSuffix: string, home: string, away: string): Fixture {
     awayTeam: away,
     kickoffAt: new Date(KICKOFF),
     status: 'NS',
+    ...overrides,
   };
 }
 
@@ -85,9 +91,10 @@ function candidate(
   home: string,
   away: string,
   pairs: OddsPair[],
+  fixtureOverrides: Partial<Fixture> = {},
 ): ScanCandidate {
   return {
-    fixture: fixture(fixtureId, home, away),
+    fixture: fixture(fixtureId, home, away, fixtureOverrides),
     pair: pairs[0]!,
     pairs,
     fairOverProbability: 0.5,
@@ -229,6 +236,25 @@ describe('runQuantPipeline', () => {
     );
     expect(result.poissonModeled).toBe(0);
     expect(result.rejected.MODEL_DATA).toBe(1);
+    expect(result.prepared).toHaveLength(0);
+  });
+
+  it('fail-closed (KSS-LEAGUE-UNIVERSE-01): liga OBSERVATION_ONLY nunca ejecuta Poisson/QUANT/PaperBet', () => {
+    const result = runQuantPipeline(
+      deps({
+        historicalMatches: overHistory(),
+        candidates: [
+          candidate('9001', 'Real Madrid', 'Sevilla', [pairFrom(0.5268, 1.998)], {
+            league: 'La Liga',
+            leagueId: 140,
+            country: 'Spain',
+          }),
+        ],
+      }),
+    );
+    expect(result.poissonModeled).toBe(0);
+    expect(result.quantCandidates).toBe(0);
+    expect(result.rejected.LEAGUE_NOT_ENABLED).toBe(1);
     expect(result.prepared).toHaveLength(0);
   });
 

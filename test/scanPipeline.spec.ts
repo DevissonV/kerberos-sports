@@ -152,7 +152,7 @@ describe('scan pipeline con adapters fake', () => {
 
     expect(report.fixturesEligible).toBe(0);
     expect(report.excludedByProtocol).toBe(1);
-    expect(logs.some((entry) => entry.message.includes('EXCLUDED_BY_PROTOCOL'))).toBe(true);
+    expect(logs.some((entry) => entry.message.includes('NOT_MODEL_ENABLED'))).toBe(true);
   });
 
   it('rechaza una oportunidad fuera de la ventana de decisión T-6h (TOO_EARLY)', async () => {

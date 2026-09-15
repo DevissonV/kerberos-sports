@@ -11,6 +11,18 @@ import { formatRefinementHeartbeat } from '../../notifications/domain/refinement
 import { REFINEMENT_STORE } from '../ports/refinementStore';
 import type { RefinementCounters, RefinementStore } from '../ports/refinementStore';
 import { QuantScanService } from './quantScanService';
+import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
+
+export interface RefinementLeagueSummary {
+  leagueId: number;
+  league: string;
+  status: LeagueStatus;
+  fixturesDetected: number;
+  modelEligible: number;
+  oddsRequested: number;
+  quantCandidates: number;
+  paperBets: number;
+}
 
 export interface RefinementTickSummary {
   timestamp: string;
@@ -20,7 +32,9 @@ export interface RefinementTickSummary {
   precheckOnly: boolean;
   rawFixtures: number;
   eligibleFixtures: number;
+  observationFixtures: number;
   decisionWindowFixtures: number;
+  byLeague: RefinementLeagueSummary[];
   fullOddsScans: number;
   oddsPapiRequests: number;
   apiFootballRequests: number;
@@ -58,7 +72,22 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `precheckOnly=${summary.precheckOnly}`,
     `rawFixtures=${summary.rawFixtures}`,
     `eligibleFixtures=${summary.eligibleFixtures}`,
+    `observationFixtures=${summary.observationFixtures}`,
     `decisionWindowFixtures=${summary.decisionWindowFixtures}`,
+    '',
+    ...summary.byLeague.flatMap((entry) => [
+      `league=${entry.league}`,
+      `status=${entry.status}`,
+      `fixturesDetected=${entry.fixturesDetected}`,
+      `modelEligible=${entry.modelEligible}`,
+      `oddsRequested=${entry.oddsRequested}`,
+      `quantCandidates=${entry.quantCandidates}`,
+      `paperBets=${entry.paperBets}`,
+      '',
+    ]),
+    `DISCOVERED_FIXTURES=${summary.rawFixtures}`,
+    `OBSERVATION_FIXTURES=${summary.observationFixtures}`,
+    `MODEL_ENABLED_FIXTURES=${summary.eligibleFixtures}`,
     '',
     `fullOddsScans=${summary.fullOddsScans}`,
     `oddsPapiRequests=${summary.oddsPapiRequests}`,
@@ -115,7 +144,9 @@ export class RefinementService {
       precheckOnly: true,
       rawFixtures: 0,
       eligibleFixtures: 0,
+      observationFixtures: 0,
       decisionWindowFixtures: 0,
+      byLeague: [],
       fullOddsScans: 0,
       oddsPapiRequests: 0,
       apiFootballRequests: 0,
@@ -149,7 +180,18 @@ export class RefinementService {
       const precheck = await this.scanning.precheck(20, now);
       tick.rawFixtures = precheck.rawFixtures;
       tick.eligibleFixtures = precheck.eligibleFixtures;
+      tick.observationFixtures = precheck.observationFixtures;
       tick.decisionWindowFixtures = precheck.decisionWindowFixtures.length;
+      tick.byLeague = precheck.byLeague.map((entry) => ({
+        leagueId: entry.leagueId,
+        league: entry.canonicalName,
+        status: entry.status,
+        fixturesDetected: entry.fixturesDetected,
+        modelEligible: entry.status === 'MODEL_ENABLED' ? entry.fixturesDetected : 0,
+        oddsRequested: 0,
+        quantCandidates: 0,
+        paperBets: 0,
+      }));
       const daily = this.refinementStore.dailyCounters(day);
       const budgetGuard = daily.fullOddsScans >= config.maxOddsPapiFullScansPerDay;
       const pending = budgetGuard
@@ -190,6 +232,16 @@ export class RefinementService {
       beforeApiFootball;
     tick.fixtureCacheHit = this.scanning.fixtureCacheHit?.() ?? false;
     tick.fixtureCacheAgeMinutes = this.scanning.fixtureCacheAgeMinutes?.() ?? 0;
+    tick.byLeague = tick.byLeague.map((entry) =>
+      entry.status === 'MODEL_ENABLED'
+        ? {
+            ...entry,
+            oddsRequested: tick.oddsPapiRequests,
+            quantCandidates: tick.quantCandidates,
+            paperBets: tick.paperBetsCreated,
+          }
+        : entry,
+    );
     this.refinementStore.increment(day, {
       precheckOnly: tick.precheckOnly ? 1 : 0,
       eligibleFixtures: tick.eligibleFixtures,
@@ -207,8 +259,11 @@ export class RefinementService {
         await this.notifications.send(
           formatRefinementHeartbeat({
             now,
-            premierLeagueFixtures: tick.eligibleFixtures,
-            decisionWindowFixtures: tick.decisionWindowFixtures,
+            byLeague: tick.byLeague.map((entry) => ({
+              leagueId: entry.leagueId,
+              status: entry.status,
+              fixturesDetected: entry.fixturesDetected,
+            })),
             counters: countersForHeartbeat(tick),
             openBets: tick.openPaperBets,
             error: tick.error,

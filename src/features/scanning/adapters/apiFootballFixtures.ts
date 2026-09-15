@@ -3,16 +3,17 @@
  * Traduce el JSON del proveedor al modelo interno. Consume `/fixtures?date=…`
  * por dia de una ventana corta: el plan Free no permite el parámetro `next`, ni
  * `league=`+`season=` para la temporada vigente (bloqueado fuera de 2022-2024,
- * verificado con la API real). La respuesta completa se filtra por la cohorte
- * antes de aplicar el límite, para no perder la Premier League por el orden global
- * de API-Football.
+ * verificado con la API real). La respuesta completa se filtra por el universo de
+ * ligas observables (`domain/leagueUniverse.ts`, whitelist por leagueId+país) antes
+ * de aplicar el límite: el mismo fetch diario/global sirve para todas las ligas del
+ * universo, sin llamadas adicionales por liga.
  */
 
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type DatabaseSync as Db } from 'node:sqlite';
 import type { Fixture } from '../domain/concepts';
-import { evaluateProtocolEligibility } from '../domain/protocol';
+import { isObservable } from '../domain/leagueUniverse';
 import type { FixturesProvider } from '../ports/fixturesProvider';
 import { FixturesProviderError } from '../ports/fixturesProvider';
 
@@ -128,7 +129,7 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
     const fixtures = bodies
       .flatMap((body) => parseFixtures({ response: assertResponseShape(body).response }))
       .filter((fixture) => fixture.status === 'NS')
-      .filter((fixture) => evaluateProtocolEligibility(fixture) === null)
+      .filter((fixture) => isObservable(fixture))
       .sort((left, right) => left.kickoffAt.getTime() - right.kickoffAt.getTime());
     this.writeCache(fixtures, fetchedAt, expiresAt);
     return fixtures.slice(0, limit);

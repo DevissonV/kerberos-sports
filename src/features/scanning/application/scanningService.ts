@@ -13,7 +13,12 @@ import type { OddsProvider } from '../ports/oddsProvider';
 import { runScan } from './scanPipeline';
 import type { ScanOutput } from './scanPipeline';
 import { decisionAtFromKickoff, evaluateDecisionWindow } from '../domain/decisionWindow';
-import { evaluateProtocolEligibility } from '../domain/protocol';
+import {
+  isModelEnabled,
+  resolveLeagueStatus,
+  summarizeFixturesByLeague,
+} from '../domain/leagueUniverse';
+import type { LeagueFixtureCount } from '../domain/leagueUniverse';
 import type { Fixture } from '../domain/concepts';
 
 export interface PrecheckFixture {
@@ -24,9 +29,16 @@ export interface PrecheckFixture {
 
 export interface PrecheckOutput {
   rawFixtures: number;
+  /** Fixtures con modelo habilitado (hoy: Premier League, cohorte KSS-V1-C01). */
   fixtures: PrecheckFixture[];
+  /** Alias de `fixtures.length`: conteo con modelo habilitado. */
   eligibleFixtures: number;
+  /** Fixtures OBSERVATION_ONLY detectados (visibles, nunca Poisson/QUANT/PaperBet). */
+  observationFixtures: number;
+  /** Solo fixtures con modelo habilitado en ventana T-6h: los únicos que disparan odds/QUANT. */
   decisionWindowFixtures: PrecheckFixture[];
+  /** Desglose por liga del universo V1, en orden fijo. */
+  byLeague: LeagueFixtureCount[];
 }
 
 @Injectable()
@@ -49,19 +61,27 @@ export class ScanningService {
 
   async precheck(limit: number, now = new Date()): Promise<PrecheckOutput> {
     const raw = await this.fixturesProvider.upcomingFixtures(limit);
+    // Model gate: solo fixtures MODEL_ENABLED continúan hacia odds/QUANT. Fixtures
+    // OBSERVATION_ONLY se cuentan (discovery) pero nunca se agregan a `fixtures`/
+    // `decisionWindowFixtures`, así que nunca disparan `runScanForFixtures` (OddsPapi).
     const fixtures = raw
-      .filter((fixture) => evaluateProtocolEligibility(fixture) === null)
+      .filter((fixture) => isModelEnabled(fixture))
       .map((fixture) => ({
         fixture,
         decisionAt: decisionAtFromKickoff(fixture.kickoffAt),
         needsSnapshot:
           evaluateDecisionWindow(fixture.kickoffAt, now) === 'ELIGIBLE_AT_DECISION_WINDOW',
       }));
+    const observationFixtures = raw.filter(
+      (fixture) => resolveLeagueStatus(fixture) === 'OBSERVATION_ONLY',
+    ).length;
     return {
       rawFixtures: raw.length,
       fixtures,
       eligibleFixtures: fixtures.length,
+      observationFixtures,
       decisionWindowFixtures: fixtures.filter((entry) => entry.needsSnapshot),
+      byLeague: summarizeFixturesByLeague(raw),
     };
   }
 
