@@ -4,9 +4,8 @@
  * entrypoints batch (cli/scan.ts); `AppModule` sigue sin importarlo para no forzar el I/O
  * de SQLite en cada bootstrap (ver comentario en `app.module.ts`).
  *
- * Luna (shadow) NO está cableada todavía: este módulo deja el pipeline como único punto
- * de extensión (los candidatos que pasan todos los gates en `QuantScanSummary`) para la
- * próxima tarea de Luna shadow, sin introducir abstracción por anticipación.
+ * Luna se ejecuta como observador shadow después de QUANT; su resultado no entra en
+ * gate, riesgo, stake, PaperBet ni Telegram.
  */
 
 import { Module } from '@nestjs/common';
@@ -16,6 +15,7 @@ import { validateEnvironment } from '../../shared/config/environment';
 import { ScanningModule } from '../scanning/scanning.module';
 import { PaperBettingModule } from '../paper-betting/paper-betting.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { LunaModule } from '../luna/luna.module';
 import { QuantScanService } from './application/quantScanService';
 
 /**
@@ -33,6 +33,7 @@ import { QuantScanService } from './application/quantScanService';
     ScanningModule,
     PaperBettingModule,
     NotificationsModule,
+    LunaModule,
   ],
   providers: [QuantScanService],
   exports: [QuantScanService],

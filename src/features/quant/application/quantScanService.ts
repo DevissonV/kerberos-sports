@@ -20,6 +20,7 @@ import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
 import { flushQuantBets } from './flushQuantBets';
+import { LunaShadowService } from '../../luna/application/lunaShadowService';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -27,6 +28,7 @@ export interface QuantScanSummary {
   paperBetsCreated: number;
   duplicatesSkipped: number;
   telegramSent: number;
+  luna: Awaited<ReturnType<LunaShadowService['evaluate']>>;
 }
 
 @Injectable()
@@ -35,6 +37,7 @@ export class QuantScanService {
     private readonly scanningService: ScanningService,
     @Inject(PAPER_BET_STORE) private readonly paperBetStore: PaperBetStore,
     @Inject(NOTIFICATION_PORT) private readonly notifications: NotificationPort,
+    private readonly lunaShadow: LunaShadowService,
     /**
      * Histórico causal para Poisson (inyectable para tests deterministas); sin
      * proveedor Nest se usa el histórico local versionado por defecto.
@@ -59,6 +62,7 @@ export class QuantScanService {
       settledPnlSum: bankroll.settledPnlSum,
       findExistingBet: (key) => this.paperBetStore.findByIdempotencyKey(key),
     });
+    const luna = await this.lunaShadow.evaluate(result, new Date());
     const flush = await flushQuantBets({
       prepared: result.prepared,
       store: this.paperBetStore,
@@ -82,6 +86,7 @@ export class QuantScanService {
       paperBetsCreated: flush.paperBetsCreated,
       duplicatesSkipped: flush.duplicatesSkipped,
       telegramSent: flush.telegramSent,
+      luna,
     };
   }
 }

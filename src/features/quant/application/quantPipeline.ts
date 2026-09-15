@@ -82,6 +82,8 @@ export interface QuantPipelineResult {
   prepared: PreparedQuantBet[];
   duplicates: PaperBetKey[];
   rejected: QuantRejectedBuckets;
+  /** Shortlist prospectiva para Luna: válida para QUANT, antes de riesgo/PaperBet. */
+  shadowShortlist: readonly { candidate: ScanCandidate; expectedValue: number }[];
 }
 
 export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
@@ -174,7 +176,19 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
     });
   }
 
-  return { poissonModeled, quantCandidates, passedGate, prepared, duplicates, rejected };
+  const shadowShortlist = bucket.map((entry) => ({
+    candidate: entry.candidate,
+    expectedValue: entry.side.expectedValue,
+  }));
+  return {
+    poissonModeled,
+    quantCandidates,
+    passedGate,
+    prepared,
+    duplicates,
+    rejected,
+    shadowShortlist,
+  };
 }
 
 interface QuantGateEntry {

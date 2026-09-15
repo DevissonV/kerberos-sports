@@ -49,5 +49,12 @@ export function renderQuantRun(summary: QuantScanSummary): string {
   lines.push(`ODDS_RANGE: ${result.rejected.ODDS_RANGE}`);
   lines.push(`RISK: ${result.rejected.RISK}`);
   lines.push(`DUPLICATE: ${result.duplicates.length}`);
+  lines.push('');
+  lines.push('LUNA SHADOW:');
+  lines.push(`SELECTED: ${summary.luna.selected}`);
+  lines.push(`EVALUATED: ${summary.luna.evaluated}`);
+  lines.push(`CACHE_HITS: ${summary.luna.cacheHits}`);
+  lines.push(`INSUFFICIENT_DATA: ${summary.luna.insufficientData}`);
+  lines.push(`INVALID_OUTPUTS: ${summary.luna.invalidOutputs}`);
   return lines.join('\n');
 }
