@@ -3,15 +3,20 @@
  * Traduce el JSON del proveedor al modelo interno. Consume `/fixtures?date=…`
  * por dia de una ventana corta: el plan Free no permite el parámetro `next`, ni
  * `league=`+`season=` para la temporada vigente (bloqueado fuera de 2022-2024,
- * verificado con la API real). El filtro de universo por liga/país de la cohorte
- * (`leagueId===39 && country==='England'`) NO se aplica aquí: se traduce el JSON
- * crudo tal cual (incluye `leagueId`/`country`) y `domain/protocol.ts` decide
- * elegibilidad en `runScan`, para mantener el adapter como traducción pura.
+ * verificado con la API real). La respuesta completa se filtra por la cohorte
+ * antes de aplicar el límite, para no perder la Premier League por el orden global
+ * de API-Football.
  */
 
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { DatabaseSync, type DatabaseSync as Db } from 'node:sqlite';
 import type { Fixture } from '../domain/concepts';
+import { evaluateProtocolEligibility } from '../domain/protocol';
 import type { FixturesProvider } from '../ports/fixturesProvider';
 import { FixturesProviderError } from '../ports/fixturesProvider';
+
+export const FIXTURE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 /** Subconjunto del JSON real de API-Football que consumimos. */
 export interface ApiFootballFixtureResponse {
@@ -53,6 +58,8 @@ export function parseFixtures(payload: unknown): Fixture[] {
  * por lo que no necesita `@Injectable()`: Nest no gestiona su construcción.
  */
 export class ApiFootballFixturesAdapter implements FixturesProvider {
+  private readonly db: Db;
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
@@ -62,13 +69,44 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
      * se consulta por fecha (`date=YYYY-MM-DD`) desde hoy hasta hoy + N - 1.
      */
     private readonly dateWindowDays = 2,
-  ) {}
+    cachePath = ':memory:',
+    private readonly nowImpl: () => Date = () => new Date(),
+  ) {
+    if (cachePath !== ':memory:') mkdirSync(dirname(cachePath), { recursive: true });
+    this.db = new DatabaseSync(cachePath);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS fixture_cache (
+        fixtureId TEXT PRIMARY KEY,
+        leagueId INTEGER NOT NULL,
+        home TEXT NOT NULL,
+        away TEXT NOT NULL,
+        kickoffAt TEXT NOT NULL,
+        status TEXT NOT NULL,
+        league TEXT NOT NULL,
+        country TEXT NOT NULL,
+        fetchedAt TEXT NOT NULL,
+        expiresAt TEXT NOT NULL
+      )
+    `);
+  }
 
   private requests = 0;
+  private lastCacheHit = false;
+  private lastCacheAgeMinutes = 0;
 
   async upcomingFixtures(limit: number): Promise<Fixture[]> {
+    const now = this.nowImpl();
+    const cached = this.readCache(now, limit);
+    if (cached !== null) {
+      this.lastCacheHit = true;
+      this.lastCacheAgeMinutes = cached.ageMinutes;
+      return cached.fixtures;
+    }
+
+    this.lastCacheHit = false;
+    this.lastCacheAgeMinutes = 0;
     const days = Array.from({ length: this.dateWindowDays }, (_, i) => {
-      const day = new Date();
+      const day = new Date(now);
       day.setUTCDate(day.getUTCDate() + i);
       return day.toISOString().slice(0, 10);
     });
@@ -85,16 +123,80 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
         return (await response.json()) as unknown;
       }),
     );
-    // Ventana comun con OddsPapi: solo "Not Started" (futuros) y hasta `limit`
-    // por dia, para no llenar el cupo con partidos ya iniciados del dia 1.
-    return bodies.flatMap((body) =>
-      parseFixtures({ response: assertResponseShape(body).response })
-        .filter((fixture) => fixture.status === 'NS')
-        .slice(0, limit),
-    );
+    const fetchedAt = now.toISOString();
+    const expiresAt = new Date(now.getTime() + FIXTURE_CACHE_TTL_MS).toISOString();
+    const fixtures = bodies
+      .flatMap((body) => parseFixtures({ response: assertResponseShape(body).response }))
+      .filter((fixture) => fixture.status === 'NS')
+      .filter((fixture) => evaluateProtocolEligibility(fixture) === null)
+      .sort((left, right) => left.kickoffAt.getTime() - right.kickoffAt.getTime());
+    this.writeCache(fixtures, fetchedAt, expiresAt);
+    return fixtures.slice(0, limit);
   }
 
   requestCount(): number {
     return this.requests;
+  }
+
+  cacheHit(): boolean {
+    return this.lastCacheHit;
+  }
+
+  cacheAgeMinutes(): number {
+    return this.lastCacheAgeMinutes;
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  private readCache(now: Date, limit: number): { fixtures: Fixture[]; ageMinutes: number } | null {
+    const rows = this.db
+      .prepare(
+        `SELECT fixtureId, leagueId, home, away, kickoffAt, status, league, country,
+                fetchedAt, expiresAt
+           FROM fixture_cache
+          WHERE expiresAt > ? AND kickoffAt >= ?
+          ORDER BY kickoffAt`,
+      )
+      .all(now.toISOString(), now.toISOString()) as Record<string, unknown>[];
+    if (rows.length === 0) return null;
+    const oldestFetchedAt = Math.min(...rows.map((row) => Date.parse(String(row['fetchedAt']))));
+    return {
+      fixtures: rows.slice(0, limit).map((row) => ({
+        id: String(row['fixtureId']),
+        sport: 'FOOTBALL',
+        league: String(row['league']),
+        leagueId: Number(row['leagueId']),
+        country: String(row['country']),
+        homeTeam: String(row['home']),
+        awayTeam: String(row['away']),
+        kickoffAt: new Date(String(row['kickoffAt'])),
+        status: String(row['status']),
+      })),
+      ageMinutes: Math.max(0, Math.floor((now.getTime() - oldestFetchedAt) / 60_000)),
+    };
+  }
+
+  private writeCache(fixtures: readonly Fixture[], fetchedAt: string, expiresAt: string): void {
+    const insert = this.db.prepare(`
+      INSERT OR REPLACE INTO fixture_cache
+        (fixtureId, leagueId, home, away, kickoffAt, status, league, country, fetchedAt, expiresAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const fixture of fixtures) {
+      insert.run(
+        fixture.id,
+        fixture.leagueId as number,
+        fixture.homeTeam,
+        fixture.awayTeam,
+        fixture.kickoffAt.toISOString(),
+        fixture.status,
+        fixture.league,
+        fixture.country as string,
+        fetchedAt,
+        expiresAt,
+      );
+    }
   }
 }

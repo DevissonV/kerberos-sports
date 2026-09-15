@@ -84,4 +84,16 @@ export class ScanningService {
     const provider = this.fixturesProvider as FixturesProvider & { requestCount?: () => number };
     return provider.requestCount?.() ?? 0;
   }
+
+  fixtureCacheHit(): boolean {
+    const provider = this.fixturesProvider as FixturesProvider & { cacheHit?: () => boolean };
+    return provider.cacheHit?.() ?? false;
+  }
+
+  fixtureCacheAgeMinutes(): number {
+    const provider = this.fixturesProvider as FixturesProvider & {
+      cacheAgeMinutes?: () => number;
+    };
+    return provider.cacheAgeMinutes?.() ?? 0;
+  }
 }

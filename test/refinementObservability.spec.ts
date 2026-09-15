@@ -179,6 +179,8 @@ describe('observabilidad de REFINEMENT_MODE', () => {
       fullOddsScans: 1,
       oddsPapiRequests: 2,
       apiFootballRequests: 1,
+      fixtureCacheHit: true,
+      fixtureCacheAgeMinutes: 30,
       poissonModeled: 1,
       quantCandidates: 1,
       paperBetsCreated: 1,

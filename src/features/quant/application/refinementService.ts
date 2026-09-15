@@ -24,6 +24,8 @@ export interface RefinementTickSummary {
   fullOddsScans: number;
   oddsPapiRequests: number;
   apiFootballRequests: number;
+  fixtureCacheHit: boolean;
+  fixtureCacheAgeMinutes: number;
   poissonModeled: number;
   quantCandidates: number;
   paperBetsCreated: number;
@@ -77,6 +79,8 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `telegramSettlementMessages=${summary.telegramSettlementMessages}`,
     '',
     `apiFootballRequests=${summary.apiFootballRequests}`,
+    `fixtureCacheHit=${summary.fixtureCacheHit}`,
+    `fixtureCacheAgeMinutes=${summary.fixtureCacheAgeMinutes}`,
     `errors=${summary.errors}`,
     `status=${summary.status}`,
     '[/KSS_REFINEMENT_TICK]',
@@ -115,6 +119,8 @@ export class RefinementService {
       fullOddsScans: 0,
       oddsPapiRequests: 0,
       apiFootballRequests: 0,
+      fixtureCacheHit: false,
+      fixtureCacheAgeMinutes: 0,
       poissonModeled: 0,
       quantCandidates: 0,
       paperBetsCreated: 0,
@@ -182,6 +188,8 @@ export class RefinementService {
       this.scanning.apiFootballRequests() +
       this.settlement.apiFootballRequests() -
       beforeApiFootball;
+    tick.fixtureCacheHit = this.scanning.fixtureCacheHit?.() ?? false;
+    tick.fixtureCacheAgeMinutes = this.scanning.fixtureCacheAgeMinutes?.() ?? 0;
     this.refinementStore.increment(day, {
       precheckOnly: tick.precheckOnly ? 1 : 0,
       eligibleFixtures: tick.eligibleFixtures,

@@ -18,6 +18,9 @@ import { ScanningService } from './application/scanningService';
         new ApiFootballFixturesAdapter(
           configService.get('apiFootballBaseUrl', { infer: true }) ?? '',
           configService.get('apiFootballKey', { infer: true }) ?? '',
+          fetch,
+          2,
+          configService.get('paperBetsDbPath', { infer: true }) ?? 'data/kerberos-sports.db',
         ),
     },
     {
