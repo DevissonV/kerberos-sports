@@ -38,19 +38,21 @@ export interface MetricsReport {
   brierScore: number;
   /** Media de -(y ln p + (1-y) ln(1-p)); 0 si vacío. */
   logLoss: number;
-  /** Beat-close en probabilidad implícita (ver documentación de calculateClosingLineValue). */
+  /** Beat-close en precio (PRICE_CLV = placedOdds / closingOdds - 1; ver calculateClosingLineValue). */
   clv: number;
   /** Cantidad de bets usadas en CLV. */
   clvSampleSize: number;
 }
 
 /**
- * Definición única de CLV (beat-close), basada en probabilidad implícita:
- *   impliedP = 1/odds ; impliedC = 1/closingOdds
- *   CLV = impliedC / impliedP - 1 = placedOdds / closingOdds - 1
- * POSITIVO: la probabilidad implícita de cierre (1/closingOdds) era MAYOR que
- * la de la cuota apostada (1/placedOdds), es decir se tomó un mejor precio que
- * el cierre (placedOdds > closingOdds). NEGATIVO: se aceptó peor precio que el cierre.
+ * CLV por PRECIO (PRICE_CLV), definición única para MVP:
+ *   PRICE_CLV = placedOdds / closingOdds - 1
+ * POSITIVO: se tomó mejor precio que el cierre (placedOdds > closingOdds).
+ * NEGATIVO: se aceptó peor precio que el cierre.
+ *
+ * NO confundir con otras variantes de CLV deliberadamente NO usadas aquí:
+ * - de-vigged probability CLV (requiere de-vig del par de cuotas de cierre).
+ * - log CLV (ln(placedOdds / closingOdds)).
  * Si no hay closingOdds (o no es finita > 1): la bet se EXCLUYE del cálculo
  * (media solo sobre bets con cierre válido); nunca se trata como 0.
  */
