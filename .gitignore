@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+npm-debug.log*
+.DS_Store
+resources/temp/*
+!resources/temp/.gitkeep
+!resources/temp/KSS-T01-handoff.md
