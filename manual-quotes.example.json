@@ -1,0 +1,16 @@
+[
+  {
+    "fixtureId": "1001",
+    "bookmaker": "BetPlay",
+    "selection": "OVER_2_5",
+    "decimalOdds": 1.72,
+    "capturedAt": "2026-09-17T12:00:00Z"
+  },
+  {
+    "fixtureId": "1002",
+    "bookmaker": "RushBet",
+    "selection": "UNDER_2_5",
+    "decimalOdds": 2.05,
+    "capturedAt": "2026-09-17T12:30:00Z"
+  }
+]

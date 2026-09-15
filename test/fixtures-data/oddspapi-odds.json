@@ -1,0 +1,96 @@
+[
+  {
+    "fixtureId": "id100000900001",
+    "tournamentId": 17,
+    "participant1Id": 3,
+    "participant2Id": 35,
+    "sportId": 10,
+    "statusId": 0,
+    "hasOdds": true,
+    "startTime": "2026-09-18T19:15:00.000Z",
+    "statusName": "Pre-Game",
+    "participant1Name": "Arsenal FC",
+    "participant2Name": "Chelsea",
+    "sportName": "Soccer",
+    "tournamentName": "Premier League",
+    "bookmakerOdds": {
+      "1xbet": {
+        "bookmakerIsActive": true,
+        "markets": {
+          "1010": {
+            "marketActive": true,
+            "outcomes": {
+              "1010": {
+                "players": {
+                  "0": { "active": true, "bookmakerOutcomeId": "2.5/over", "price": 1.95, "changedAt": "2026-09-17T10:00:00.000Z" }
+                }
+              },
+              "1011": {
+                "players": {
+                  "0": { "active": true, "bookmakerOutcomeId": "2.5/under", "price": 1.87, "changedAt": "2026-09-17T10:00:00.000Z" }
+                }
+              }
+            }
+          },
+          "104": {
+            "outcomes": {
+              "104": { "players": { "0": { "active": true, "bookmakerOutcomeId": "home", "price": 2.1 } } }
+            }
+          }
+        }
+      },
+      "pinnacle": {
+        "bookmakerIsActive": true,
+        "markets": {
+          "1010": {
+            "outcomes": {
+              "1010": {
+                "players": {
+                  "0": { "active": true, "bookmakerOutcomeId": "2.5/over", "price": 1.98, "changedAt": "2026-09-17T09:30:00.000Z" }
+                }
+              },
+              "1011": {
+                "players": {
+                  "0": { "active": true, "bookmakerOutcomeId": "2.5/under", "price": 1.84, "changedAt": "2026-09-17T09:30:00.000Z" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "fixtureId": "id100000900002",
+    "tournamentId": 8,
+    "sportId": 10,
+    "statusId": 0,
+    "hasOdds": true,
+    "startTime": "2026-09-18T21:30:00.000Z",
+    "participant1Name": "Real Madrid",
+    "participant2Name": "Sevilla",
+    "tournamentName": "LaLiga",
+    "bookmakerOdds": {
+      "betplay": {
+        "markets": {
+          "1010": {
+            "outcomes": {
+              "1010": { "players": { "0": { "active": true, "bookmakerOutcomeId": "over/2.5", "price": 1.72 } } },
+              "1011": { "players": { "0": { "active": true, "bookmakerOutcomeId": "under/2.5", "price": 2.05 } } }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "fixtureId": "id100000900003",
+    "sportId": 10,
+    "statusId": 0,
+    "startTime": "2026-09-19T18:00:00.000Z",
+    "participant1Name": "Bayern Munich",
+    "participant2Name": "Borussia Dortmund",
+    "tournamentName": "Bundesliga",
+    "bookmakerOdds": {}
+  }
+]
