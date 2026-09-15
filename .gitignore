@@ -19,3 +19,4 @@ resources/temp/*
 
 # SQLite local de PaperBets (PAPER ONLY, local/durable por runtime)
 data/
+!resources/temp/KSS-QUANT-VERTICAL-01-handoff.md
