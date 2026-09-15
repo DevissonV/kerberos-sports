@@ -16,12 +16,17 @@ export interface AppConfig {
   oddsPapiKey?: string;
   /** Base URL de OddsPapi. */
   oddsPapiBaseUrl: string;
+  /** Token del bot de Telegram de Kerberos SPORTS (independiente de Crypto). */
+  telegramBotToken?: string;
+  /** Chat ID de destino de las notificaciones de Kerberos SPORTS. */
+  telegramChatId?: string;
 }
 
 /** Variables de entorno cuyo valor es un secreto y debe redactarse en logs. */
 export const SECRET_ENV_KEYS = [
   'API_FOOTBALL_KEY',
   'ODDSPAPI_KEY',
+  'TELEGRAM_BOT_TOKEN',
   'API_KEY',
   'APIKEY',
   'TOKEN',
@@ -43,6 +48,8 @@ export const config: AppConfig = {
   apiFootballBaseUrl: optionalEnv('API_FOOTBALL_BASE_URL') ?? 'https://v3.football.api-sports.io',
   oddsPapiKey: optionalEnv('ODDSPAPI_KEY'),
   oddsPapiBaseUrl: optionalEnv('ODDSPAPI_BASE_URL') ?? 'https://api.oddspapi.io',
+  telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
+  telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
 };
 
 /**

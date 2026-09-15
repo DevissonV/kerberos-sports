@@ -12,6 +12,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/cli/main.js",
     "scan": "npm run build && node -r dotenv/config dist/cli/scan.js",
+    "telegram:smoke": "npm run build && node -r dotenv/config dist/cli/telegramSmoke.js",
     "start:dev": "tsc -p tsconfig.build.json --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
