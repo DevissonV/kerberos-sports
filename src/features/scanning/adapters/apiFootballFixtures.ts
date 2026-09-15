@@ -64,6 +64,8 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
     private readonly dateWindowDays = 2,
   ) {}
 
+  private requests = 0;
+
   async upcomingFixtures(limit: number): Promise<Fixture[]> {
     const days = Array.from({ length: this.dateWindowDays }, (_, i) => {
       const day = new Date();
@@ -73,6 +75,7 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
     const bodies = await Promise.all(
       days.map(async (day) => {
         const url = `${this.baseUrl}/fixtures?date=${day}`;
+        this.requests += 1;
         const response = await this.fetchImpl(url, {
           headers: { 'x-apisports-key': this.apiKey },
         });
@@ -89,5 +92,9 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
         .filter((fixture) => fixture.status === 'NS')
         .slice(0, limit),
     );
+  }
+
+  requestCount(): number {
+    return this.requests;
   }
 }

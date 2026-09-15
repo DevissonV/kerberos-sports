@@ -91,6 +91,11 @@ export class SettlementService {
     };
   }
 
+  apiFootballRequests(): number {
+    const provider = this.results as ResultsProvider & { requestCount?: () => number };
+    return provider.requestCount?.() ?? 0;
+  }
+
   private currentBankroll(): number {
     const openStakesSum = this.store.listByStatus('OPEN').reduce((sum, bet) => sum + bet.stake, 0);
     const settledPnlSum = (['WON', 'LOST', 'VOID'] as const)

@@ -13,4 +13,11 @@ describe('SqliteRefinementStore', () => {
     expect(store.dailyCounters('2026-09-15').ticks).toBe(1);
     store.close();
   });
+
+  it('reclama el heartbeat de un tick solo una vez', () => {
+    const store = new SqliteRefinementStore(':memory:');
+    expect(store.claimHeartbeat('2026-09-15T12:00')).toBe(true);
+    expect(store.claimHeartbeat('2026-09-15T12:00')).toBe(false);
+    store.close();
+  });
 });

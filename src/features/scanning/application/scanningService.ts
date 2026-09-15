@@ -23,6 +23,7 @@ export interface PrecheckFixture {
 }
 
 export interface PrecheckOutput {
+  rawFixtures: number;
   fixtures: PrecheckFixture[];
   eligibleFixtures: number;
   decisionWindowFixtures: PrecheckFixture[];
@@ -57,6 +58,7 @@ export class ScanningService {
           evaluateDecisionWindow(fixture.kickoffAt, now) === 'ELIGIBLE_AT_DECISION_WINDOW',
       }));
     return {
+      rawFixtures: raw.length,
       fixtures,
       eligibleFixtures: fixtures.length,
       decisionWindowFixtures: fixtures.filter((entry) => entry.needsSnapshot),
@@ -75,6 +77,11 @@ export class ScanningService {
 
   oddsPapiRequests(): number {
     const provider = this.oddsProvider as OddsProvider & { requestCount?: () => number };
+    return provider.requestCount?.() ?? 0;
+  }
+
+  apiFootballRequests(): number {
+    const provider = this.fixturesProvider as FixturesProvider & { requestCount?: () => number };
     return provider.requestCount?.() ?? 0;
   }
 }

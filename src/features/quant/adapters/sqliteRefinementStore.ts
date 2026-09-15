@@ -24,6 +24,9 @@ export class SqliteRefinementStore implements RefinementStore {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS refinement_heartbeats (
+        tickId TEXT PRIMARY KEY, sentAt TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS decision_snapshots (
         cohortId TEXT NOT NULL, fixtureId TEXT NOT NULL, decisionAt TEXT NOT NULL,
         capturedAt TEXT NOT NULL, PRIMARY KEY (cohortId, fixtureId, decisionAt)
@@ -37,6 +40,13 @@ export class SqliteRefinementStore implements RefinementStore {
         settlements INTEGER NOT NULL DEFAULT 0, errors INTEGER NOT NULL DEFAULT 0
       );
     `);
+  }
+
+  claimHeartbeat(tickId: string): boolean {
+    const result = this.db
+      .prepare('INSERT OR IGNORE INTO refinement_heartbeats (tickId, sentAt) VALUES (?, ?)')
+      .run(tickId, new Date().toISOString());
+    return result.changes === 1;
   }
 
   claimDecisionSnapshot(cohortId: string, fixtureId: string, decisionAt: Date): boolean {

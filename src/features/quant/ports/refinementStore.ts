@@ -15,6 +15,7 @@ export interface RefinementCounters {
 }
 
 export interface RefinementStore {
+  claimHeartbeat(tickId: string): boolean;
   claimDecisionSnapshot(cohortId: string, fixtureId: string, decisionAt: Date): boolean;
   dailyCounters(day: string): RefinementCounters;
   increment(day: string, delta: Partial<RefinementCounters>): RefinementCounters;

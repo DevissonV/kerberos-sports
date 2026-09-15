@@ -49,6 +49,8 @@ export function parseFixtureResult(payload: unknown, fixtureId: string): Fixture
 
 /** Adapter API-Football: solo expone el marcador fulltime, nunca extra time ni penales. */
 export class ApiFootballResultsAdapter implements ResultsProvider {
+  private requests = 0;
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
@@ -56,6 +58,7 @@ export class ApiFootballResultsAdapter implements ResultsProvider {
   ) {}
 
   async result(fixtureId: string): Promise<FixtureResult | null> {
+    this.requests += 1;
     const response = await this.fetchImpl(`${this.baseUrl}/fixtures?id=${fixtureId}`, {
       headers: { 'x-apisports-key': this.apiKey },
     });
@@ -63,5 +66,9 @@ export class ApiFootballResultsAdapter implements ResultsProvider {
       throw new ResultsProviderError(`API-Football respondio HTTP ${response.status}`);
     }
     return parseFixtureResult(await response.json(), fixtureId);
+  }
+
+  requestCount(): number {
+    return this.requests;
   }
 }

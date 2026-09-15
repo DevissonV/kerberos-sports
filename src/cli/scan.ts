@@ -36,23 +36,7 @@ async function main(): Promise<void> {
     const quantScan = app.get(QuantScanService);
     if (config.refinementMode) {
       const refinement = app.get(RefinementService);
-      const summary = await refinement.runTick(config);
-      process.stdout.write(
-        `${JSON.stringify({
-          PRECHECK_ONLY: summary.precheckOnly,
-          PL_FIXTURES: summary.premierLeagueFixtures,
-          DECISION_WINDOW_FIXTURES: summary.decisionWindowFixtures,
-          FULL_ODDS_SCANS: summary.fullOddsScans,
-          ODDSPAPI_REQUESTS: summary.oddsPapiRequests,
-          QUANT_CANDIDATES: summary.quantCandidates,
-          PAPER_BETS: summary.paperBetsCreated,
-          LUNA_CALLS: summary.lunaCalls,
-          SETTLEMENTS: summary.settlements,
-          TELEGRAM_HEARTBEAT_SENT: summary.heartbeatSent,
-          BUDGET_GUARD: summary.budgetGuard,
-          ERROR: summary.error,
-        })}\n`,
-      );
+      await refinement.runTick(config);
       return;
     }
     const summary = await quantScan.runScan(SCAN_FIXTURE_LIMIT);
