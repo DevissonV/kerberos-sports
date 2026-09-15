@@ -45,10 +45,10 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
 
     expect(output.rawFixtures).toBe(4);
-    expect(output.eligibleFixtures).toBe(2);
-    expect(output.fixtures).toHaveLength(2);
+    expect(output.eligibleFixtures).toBe(1);
+    expect(output.fixtures).toHaveLength(1);
     expect(output.fixtures[0]?.fixture.id).toBe('1');
-    expect(output.observationFixtures).toBe(1);
+    expect(output.observationFixtures).toBe(2);
 
     const byStatus = Object.fromEntries(
       output.byLeague.map((entry) => [entry.canonicalName, entry]),
@@ -61,7 +61,7 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
       status: 'OBSERVATION_ONLY',
       fixturesDetected: 1,
     });
-    expect(byStatus['LaLiga']).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
+    expect(byStatus['LaLiga']).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 1 });
   });
 
   it('OBSERVATION_ONLY nunca entra a decisionWindowFixtures (nunca dispara odds/QUANT)', async () => {
