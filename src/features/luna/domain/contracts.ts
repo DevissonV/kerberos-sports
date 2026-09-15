@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const LUNA_MODEL_VERSION = 'GPT-5.6 Luna';
+export const LUNA_RUNTIME_MODEL = 'gpt-5.6-luna';
 export const LUNA_PROMPT_VERSION = 'luna-sports-brain-v1';
 export const LUNA_SNAPSHOT_VERSION = '1.0';
 export const MAX_LLM_REVIEWS_PER_RUN = 5;
@@ -50,6 +51,15 @@ export const lunaOutputSchema = z
   .strict();
 
 export type LunaOutput = z.infer<typeof lunaOutputSchema>;
+
+export const lunaEvaluationStatusSchema = z.enum([
+  'SUCCESS',
+  'INSUFFICIENT_DATA',
+  'INVALID_OUTPUT',
+  'PROVIDER_ERROR',
+  'TIMEOUT',
+]);
+export type LunaEvaluationStatus = z.infer<typeof lunaEvaluationStatusSchema>;
 
 export function parseLunaOutput(value: unknown, expected: LunaInput): LunaOutput {
   const output = lunaOutputSchema.parse(value);

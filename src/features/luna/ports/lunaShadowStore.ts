@@ -1,4 +1,4 @@
-import type { LunaOutput } from '../domain/contracts';
+import type { LunaEvaluationStatus, LunaOutput } from '../domain/contracts';
 
 export interface LunaShadowRecord {
   cohortId: string;
@@ -15,6 +15,10 @@ export interface LunaShadowRecord {
   reasons: string[];
   riskFlags: string[];
   createdAt: Date;
+  status: LunaEvaluationStatus;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
 }
 
 export interface LunaShadowStore {

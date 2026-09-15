@@ -9,7 +9,8 @@ const TABLE = `CREATE TABLE IF NOT EXISTS luna_shadow_evaluations (
   snapshotHash TEXT NOT NULL, snapshotVersion TEXT NOT NULL, promptVersion TEXT NOT NULL,
   modelVersion TEXT NOT NULL, pOver REAL NOT NULL, pUnder REAL NOT NULL,
   confidence TEXT NOT NULL, decision TEXT NOT NULL, reasons TEXT NOT NULL,
-  riskFlags TEXT NOT NULL, createdAt TEXT NOT NULL,
+  riskFlags TEXT NOT NULL, createdAt TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'SUCCESS',
+  inputTokens INTEGER, outputTokens INTEGER, totalTokens INTEGER,
   UNIQUE (fixtureId, snapshotVersion, snapshotHash, promptVersion, modelVersion)
 )`;
 
@@ -20,6 +21,18 @@ export class SqliteLunaShadowStore implements LunaShadowStore {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec(TABLE);
+    for (const statement of [
+      "ALTER TABLE luna_shadow_evaluations ADD COLUMN status TEXT NOT NULL DEFAULT 'SUCCESS'",
+      'ALTER TABLE luna_shadow_evaluations ADD COLUMN inputTokens INTEGER',
+      'ALTER TABLE luna_shadow_evaluations ADD COLUMN outputTokens INTEGER',
+      'ALTER TABLE luna_shadow_evaluations ADD COLUMN totalTokens INTEGER',
+    ]) {
+      try {
+        this.db.exec(statement);
+      } catch {
+        // La columna ya existe en bases locales creadas por esta versión.
+      }
+    }
   }
 
   close(): void {
@@ -47,9 +60,11 @@ export class SqliteLunaShadowStore implements LunaShadowStore {
       .prepare(
         `INSERT INTO luna_shadow_evaluations
       (cohortId, fixtureId, snapshotAt, snapshotHash, snapshotVersion, promptVersion, modelVersion,
-       pOver, pUnder, confidence, decision, reasons, riskFlags, createdAt)
+       pOver, pUnder, confidence, decision, reasons, riskFlags, createdAt, status,
+       inputTokens, outputTokens, totalTokens)
       VALUES (:cohortId, :fixtureId, :snapshotAt, :snapshotHash, :snapshotVersion, :promptVersion,
-       :modelVersion, :pOver, :pUnder, :confidence, :decision, :reasons, :riskFlags, :createdAt)`,
+       :modelVersion, :pOver, :pUnder, :confidence, :decision, :reasons, :riskFlags, :createdAt,
+       :status, :inputTokens, :outputTokens, :totalTokens)`,
       )
       .run({
         ...record,
@@ -77,5 +92,9 @@ function deserialize(row: Record<string, unknown>): LunaShadowRecord {
     reasons: JSON.parse(String(row.reasons)) as string[],
     riskFlags: JSON.parse(String(row.riskFlags)) as string[],
     createdAt: new Date(String(row.createdAt)),
+    status: row.status as LunaShadowRecord['status'],
+    inputTokens: row.inputTokens === null ? undefined : Number(row.inputTokens),
+    outputTokens: row.outputTokens === null ? undefined : Number(row.outputTokens),
+    totalTokens: row.totalTokens === null ? undefined : Number(row.totalTokens),
   };
 }

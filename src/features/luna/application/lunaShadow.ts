@@ -5,10 +5,11 @@ import {
   LUNA_PROMPT_VERSION,
   MAX_LLM_REVIEWS_PER_RUN,
   parseLunaOutput,
+  type LunaEvaluationStatus,
   type LunaOutput,
 } from '../domain/contracts';
 import { buildLunaSnapshot, lunaSnapshotHash } from '../domain/snapshot';
-import type { LunaInference } from '../ports/lunaInference';
+import type { LunaInference, LunaInferenceResult } from '../ports/lunaInference';
 import type { LunaShadowRecord, LunaShadowStore } from '../ports/lunaShadowStore';
 
 export interface LunaShortlistEntry {
@@ -29,6 +30,13 @@ export interface LunaShadowResult {
   cacheHits: number;
   invalidOutputs: number;
   insufficientData: number;
+  providerErrors: number;
+  timeouts: number;
+  apiCalls: number;
+  successes: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
   records: LunaShadowRecord[];
 }
 
@@ -46,6 +54,13 @@ export async function runLunaShadow(deps: LunaShadowDeps): Promise<LunaShadowRes
     cacheHits: 0,
     invalidOutputs: 0,
     insufficientData: 0,
+    providerErrors: 0,
+    timeouts: 0,
+    apiCalls: 0,
+    successes: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
     records: [],
   };
   for (const entry of shortlist) {
@@ -60,6 +75,13 @@ export async function runLunaShadow(deps: LunaShadowDeps): Promise<LunaShadowRes
     }
     const inference = await inferAndParseWithSingleRetry(deps.infer, snapshot);
     if (inference.invalid) result.invalidOutputs += 1;
+    if (inference.status === 'PROVIDER_ERROR') result.providerErrors += 1;
+    if (inference.status === 'TIMEOUT') result.timeouts += 1;
+    if (inference.status === 'SUCCESS' && inference.parsed !== null) result.successes += 1;
+    result.apiCalls += inference.apiCalls;
+    result.inputTokens += inference.inputTokens;
+    result.outputTokens += inference.outputTokens;
+    result.totalTokens += inference.totalTokens;
     const finalOutput =
       inference.parsed ??
       (inference.invalid ? invalidOutput(snapshot) : insufficientOutput(snapshot));
@@ -79,6 +101,10 @@ export async function runLunaShadow(deps: LunaShadowDeps): Promise<LunaShadowRes
       reasons: finalOutput.reasons,
       riskFlags: finalOutput.riskFlags,
       createdAt: deps.now,
+      status: inference.invalid ? 'INVALID_OUTPUT' : inference.status,
+      inputTokens: inference.inputTokens || undefined,
+      outputTokens: inference.outputTokens || undefined,
+      totalTokens: inference.totalTokens || undefined,
     };
     deps.store.save(record);
     result.evaluated += 1;
@@ -100,19 +126,65 @@ export function lunaCacheKey(
 async function inferAndParseWithSingleRetry(
   infer: LunaInference,
   input: Parameters<LunaInference['infer']>[0],
-): Promise<{ parsed: LunaOutput | null; invalid: boolean }> {
+): Promise<{
+  parsed: LunaOutput | null;
+  invalid: boolean;
+  status: LunaEvaluationStatus;
+  apiCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}> {
   let invalid = false;
+  let status: LunaEvaluationStatus = 'INSUFFICIENT_DATA';
+  let apiCalls = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const value = await infer.infer(input, LUNA_PROMPT_VERSION);
-      const parsed = parseSafely(value, input);
-      if (parsed !== null) return { parsed, invalid };
+      const response = isInferenceResult(value)
+        ? value
+        : { output: value, status: 'SUCCESS' as const };
+      status = response.status;
+      if (status !== 'INSUFFICIENT_DATA') apiCalls += 1;
+      inputTokens += response.inputTokens ?? 0;
+      outputTokens += response.outputTokens ?? 0;
+      totalTokens += response.totalTokens ?? 0;
+      const parsed = parseSafely(response.output, input);
+      if (parsed !== null)
+        return { parsed, invalid, status, apiCalls, inputTokens, outputTokens, totalTokens };
+      if (status !== 'SUCCESS')
+        return {
+          parsed: null,
+          invalid: false,
+          status,
+          apiCalls,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+        };
       invalid = true;
     } catch {
-      // Un timeout transitorio también puede consumir el único retry.
+      return {
+        parsed: null,
+        invalid: false,
+        status: 'PROVIDER_ERROR',
+        apiCalls: apiCalls + 1,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+      };
     }
   }
-  return { parsed: null, invalid };
+  return { parsed: null, invalid, status, apiCalls, inputTokens, outputTokens, totalTokens };
+}
+
+function isInferenceResult(
+  value: LunaOutput | string | LunaInferenceResult,
+): value is LunaInferenceResult {
+  return typeof value === 'object' && value !== null && 'output' in value && 'status' in value;
 }
 
 function parseSafely(

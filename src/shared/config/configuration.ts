@@ -16,6 +16,10 @@ export interface AppConfig {
   oddsPapiKey?: string;
   /** Base URL de OddsPapi. */
   oddsPapiBaseUrl: string;
+  /** Clave del proveedor OpenAI-compatible para el evaluador shadow de Luna. */
+  openAiCompatibleApiKey?: string;
+  openAiCompatibleModel: string;
+  openAiCompatibleBaseUrl: string;
   /** Token del bot de Telegram de Kerberos SPORTS (independiente de Crypto). */
   telegramBotToken?: string;
   /** Chat ID de destino de las notificaciones de Kerberos SPORTS. */
@@ -54,6 +58,10 @@ export function createConfig(): AppConfig {
     apiFootballBaseUrl: optionalEnv('API_FOOTBALL_BASE_URL') ?? 'https://v3.football.api-sports.io',
     oddsPapiKey: optionalEnv('ODDSPAPI_KEY'),
     oddsPapiBaseUrl: optionalEnv('ODDSPAPI_BASE_URL') ?? 'https://api.oddspapi.io',
+    openAiCompatibleApiKey: optionalEnv('OPENAI_COMPATIBLE_API_KEY'),
+    openAiCompatibleModel: optionalEnv('OPENAI_COMPATIBLE_MODEL') ?? 'gpt-5.6-luna',
+    openAiCompatibleBaseUrl:
+      optionalEnv('OPENAI_COMPATIBLE_BASE_URL') ?? 'https://api.openai.com/v1',
     telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
     telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
     paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',

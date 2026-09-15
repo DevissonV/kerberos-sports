@@ -109,13 +109,20 @@ describe('Luna shadow', () => {
 
   it('fail-open para JSON inválido: persiste LUNA_INVALID_OUTPUT sin lanzar', async () => {
     const store = new MemoryStore();
+    let calls = 0;
     const result = await runLunaShadow({
       shortlist: [entry('2', 0.4)],
-      infer: { infer: () => Promise.resolve('{bad json') },
+      infer: {
+        infer: () => {
+          calls += 1;
+          return Promise.resolve('{bad json');
+        },
+      },
       store,
       now,
     });
     expect(result.invalidOutputs).toBe(1);
     expect(result.records[0]?.riskFlags).toContain('LUNA_INVALID_OUTPUT');
+    expect(calls).toBe(2);
   });
 });

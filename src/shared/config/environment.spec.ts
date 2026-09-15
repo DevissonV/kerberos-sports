@@ -33,6 +33,17 @@ describe('validateEnvironment', () => {
     expect(parsed.TELEGRAM_CHAT_ID).toBe('123');
   });
 
+  it('acepta la convención OpenAI-compatible homologada', () => {
+    const parsed = validateEnvironment({
+      OPENAI_COMPATIBLE_API_KEY: 'test-key',
+      OPENAI_COMPATIBLE_MODEL: 'gpt-5.6-luna',
+      OPENAI_COMPATIBLE_BASE_URL: 'https://api.example.test/v1',
+    });
+    expect(parsed.OPENAI_COMPATIBLE_API_KEY).toBe('test-key');
+    expect(parsed.OPENAI_COMPATIBLE_MODEL).toBe('gpt-5.6-luna');
+    expect(parsed.OPENAI_COMPATIBLE_BASE_URL).toBe('https://api.example.test/v1');
+  });
+
   it('usa PAPER_BETS_DB_PATH cuando está definido y conserva el fallback local', () => {
     const previous = process.env.PAPER_BETS_DB_PATH;
     try {
