@@ -67,15 +67,15 @@ describe('adapter OddsPapi parsing', () => {
     expect(detectOverUnder25(undefined)).toBeNull();
   });
 
-  it('extrae pares O/U 2.5 priorizando 1xBet sin excluir otros books', () => {
+  it('extrae pares O/U 2.5 priorizando pinnacle sin excluir otros books', () => {
     const first = payload[0];
     expect(first).toBeDefined();
     const pairs = extractOddsPairs(first as OddsPapiFixturePayload);
     expect(pairs).toHaveLength(2);
-    expect(pairs[0]?.bookmaker).toBe('1xbet');
-    expect(pairs[0]?.over.decimalOdds).toBe(1.95);
-    expect(pairs[0]?.under.decimalOdds).toBe(1.87);
-    expect(pairs[1]?.bookmaker).toBe('pinnacle');
+    expect(pairs[0]?.bookmaker).toBe('pinnacle');
+    expect(pairs[0]?.over.decimalOdds).toBe(1.98);
+    expect(pairs[0]?.under.decimalOdds).toBe(1.84);
+    expect(pairs[1]?.bookmaker).toBe('1xbet');
   });
 
   it('soporta la variante over/2.5 del bookmaker BetPlay', () => {
