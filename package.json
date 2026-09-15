@@ -15,6 +15,7 @@
     "start:prod": "node dist/main.js",
     "scan": "npm run build && node -r dotenv/config dist/cli/scan.js",
     "telegram:smoke": "npm run build && node -r dotenv/config dist/cli/telegramSmoke.js",
+    "poisson:smoke": "npm run build && node -r dotenv/config dist/cli/poissonSmoke.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"{src,test}/**/*.ts\" \"*.{json,md,yml,yaml}\"",
