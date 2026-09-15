@@ -2,7 +2,7 @@
 import {
   calculateEdge,
   calculateExpectedValuePerUnit,
-  calculateMinimumAcceptableOdds,
+  calculateMinimumOddsForExpectedValue,
   devigTwoWay,
 } from './marketMath';
 
@@ -42,12 +42,21 @@ describe('edge y EV', () => {
   });
 });
 
-describe('cuota minima aceptable', () => {
-  it('p = 0.60, minEdge = 0.08 -> odds = 1/0.52 ≈ 1.923', () => {
-    expect(calculateMinimumAcceptableOdds(0.6, 0.08)).toBeCloseTo(1 / 0.52, 12);
+describe('cuota minima por EV minimo (no es edge)', () => {
+  it('p = 0.60, minEV = 0 -> odds break-even = 1/0.6', () => {
+    expect(calculateMinimumOddsForExpectedValue(0.6, 0)).toBeCloseTo(1 / 0.6, 12);
   });
 
-  it('si p <= minEdge, requiere una cantidad infinita (imposible)', () => {
-    expect(calculateMinimumAcceptableOdds(0.05, 0.08)).toBe(Number.POSITIVE_INFINITY);
+  it('p = 0.60, minEV = 0.14 -> odds = 1.9 (coherente con EV = 0.14 a cuota 1.9)', () => {
+    expect(calculateMinimumOddsForExpectedValue(0.6, 0.14)).toBeCloseTo(1.9, 12);
+  });
+
+  it('p = 0 -> ninguna cuota finita alcanza el EV minimo', () => {
+    expect(calculateMinimumOddsForExpectedValue(0, 0)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('rechaza minEV negativo o no finito', () => {
+    expect(() => calculateMinimumOddsForExpectedValue(0.6, -0.1)).toThrow();
+    expect(() => calculateMinimumOddsForExpectedValue(0.6, NaN)).toThrow();
   });
 });

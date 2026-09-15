@@ -58,22 +58,28 @@ export function calculateExpectedValuePerUnit(
 }
 
 /**
- * Cuota decimal minima compatible con un edge minimo.
+ * Cuota decimal mínima para alcanzar un EV mínimo por unidad apostada:
+ *   EV = p * odds - 1  >=  minEV   =>   odds >= (1 + minEV) / p
+ * Con minEV = 0 es la cuota de break-even: 1 / p.
  *
- * Definicion: las cuotas del mercado implican una probabilidad fair de mercado
- * pFair = 1/odds (tras de-vig de un two-way, la cuota fair es la referencia).
- * Exigimos edge = pModel - pFair >= minEdge  =>  pFair <= pModel - minEdge.
- * La cuota minima que satisface la igualdad es minOdds = 1 / (pModel - minEdge).
- * Devuelve Infinity si pModel <= minEdge (ninguna cuota finita para: el edge
- * requerido igualaria toda la probabilidad del modelo).
+ * NOTA conceptual (PRICE vs EDGE): esta cota NO es un edge. El edge se define
+ * contra la probabilidad fair de-vigged del mercado, que requiere el PAR de
+ * cuotas (ver devigTwoWay) y se verifica por separado en el gate mediante
+ * fairMarketProbability. Mezclar aquí la probabilidad implícita cruda de una
+ * sola cuota (1/odds, con vig) con el edge contra fair sería inconsistente.
+ * Devuelve Infinity si p <= 0 (ninguna cuota finita alcanza el EV mínimo).
  */
-export function calculateMinimumAcceptableOdds(modelProbability: number, minEdge: number): number {
+export function calculateMinimumOddsForExpectedValue(
+  modelProbability: number,
+  minExpectedValue: number,
+): number {
   assertValidProbability(modelProbability, 'modelProbability');
-  if (!Number.isFinite(minEdge) || minEdge < 0) {
-    throw new Error(`minEdge invalida: ${minEdge} (debe ser >= 0 y finita)`);
+  if (!Number.isFinite(minExpectedValue) || minExpectedValue < 0) {
+    throw new Error(`minExpectedValue invalido: ${minExpectedValue} (debe ser >= 0 y finito)`);
   }
-  const fairCap = modelProbability - minEdge;
-  return fairCap > 0 ? 1 / fairCap : Number.POSITIVE_INFINITY;
+  return modelProbability > 0
+    ? (1 + minExpectedValue) / modelProbability
+    : Number.POSITIVE_INFINITY;
 }
 
 // Re-export helper de validación de probabilidades para uso interno de la feature.
