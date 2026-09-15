@@ -7,7 +7,7 @@ describe('domain scope', () => {
   it('solo FOOTBALL en MVP', () => {
     expect(DEFAULT_SPORT).toBe('FOOTBALL');
     expect(SPORT).toBe('FOOTBALL');
-    expect(CANDIDATE_MARKET_KIND).toBe('MATCH_WINNER');
+    expect(CANDIDATE_MARKET_KIND).toBe('OVER_UNDER');
   });
 
   it('entidades conceptuales se construyen', () => {
