@@ -71,8 +71,12 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
         return (await response.json()) as unknown;
       }),
     );
-    return parseFixtures({
-      response: bodies.flatMap((body) => assertResponseShape(body).response),
-    }).slice(0, limit);
+    // Ventana comun con OddsPapi: solo "Not Started" (futuros) y hasta `limit`
+    // por dia, para no llenar el cupo con partidos ya iniciados del dia 1.
+    return bodies.flatMap((body) =>
+      parseFixtures({ response: assertResponseShape(body).response })
+        .filter((fixture) => fixture.status === 'NS')
+        .slice(0, limit),
+    );
   }
 }

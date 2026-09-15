@@ -13,8 +13,17 @@ import { OddsProviderError } from '../ports/oddsProvider';
 
 /** sportId de Soccer en OddsPapi (docs oficiales). */
 const SOCCER_SPORT_ID = 10;
-/** Bookmaker priorizado si aparece; no se excluyen los demás. */
-const PREFERRED_BOOKMAKER = '1xbet';
+/**
+ * Bookmaker usado en cuotas batch: la API exige exactamente uno por request.
+ * 1xbet expone outcome ids numericos internos (sin patron "2.5/over|under");
+ * pinnacle usa el formato legible que detecta `detectOverUnder25`.
+ */
+const ODDS_BOOKMAKER = 'pinnacle';
+/** Maximo de torneos por request de cuotas (la API rechaza mas de 5 con HTTP 400). */
+const TOURNAMENT_BATCH_SIZE = 5;
+/** Cooldown documentado del endpoint odds-by-tournaments. */
+/** Cooldown global entre requests de OddsPapi (docs: endpoints limitados ~1s). */
+const REQUEST_COOLDOWN_MS = 1100;
 
 /** Subconjunto del JSON real de OddsPapi (v4/fixtures y v4/odds-by-tournaments). */
 export interface OddsPapiFixturePayload {
@@ -110,8 +119,9 @@ export function detectOverUnder25(outcomeId: string | undefined): 'OVER_2_5' | '
 }
 
 /**
- * Extrae pares over/under 2.5 de un fixture. Prioriza 1xBet si está; si no,
- * usa el primer bookmaker con par completo. Books sin par completo se descartan.
+ * Extrae pares over/under 2.5 de un fixture. Prioriza el bookmaker consultado
+ * (pinnacle); si no está, usa el primer bookmaker con par completo.
+ * Books sin par completo se descartan.
  */
 export function extractOddsPairs(fixture: OddsPapiFixturePayload): OddsPair[] {
   const quotesByBook = new Map<string, { over?: BookmakerQuote; under?: BookmakerQuote }>();
@@ -141,10 +151,10 @@ export function extractOddsPairs(fixture: OddsPapiFixturePayload): OddsPair[] {
       pairs.push({ fixtureId: fixture.fixtureId, bookmaker, over: entry.over, under: entry.under });
     }
   }
-  // 1xBet primero sin excluir al resto.
+  // Pinnacle primero: es el bookmaker consultado en batch.
   pairs.sort((a, b) => {
-    const aPref = a.bookmaker.toLowerCase() === PREFERRED_BOOKMAKER ? 0 : 1;
-    const bPref = b.bookmaker.toLowerCase() === PREFERRED_BOOKMAKER ? 0 : 1;
+    const aPref = a.bookmaker.toLowerCase() === ODDS_BOOKMAKER ? 0 : 1;
+    const bPref = b.bookmaker.toLowerCase() === ODDS_BOOKMAKER ? 0 : 1;
     return aPref - bPref;
   });
   return pairs;
@@ -157,7 +167,16 @@ export class OddsPapiAdapter implements OddsProvider {
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
+  private lastRequestAt = 0;
+
   private async getJson(path: string, query: Record<string, string>): Promise<unknown> {
+    // Rate limit global de la API: pacing de 1100ms entre requests.
+    const now = Date.now();
+    const elapsed = now - this.lastRequestAt;
+    if (this.lastRequestAt > 0 && elapsed < REQUEST_COOLDOWN_MS) {
+      await sleep(REQUEST_COOLDOWN_MS - elapsed);
+    }
+    this.lastRequestAt = Date.now();
     const url = new URL(path, this.baseUrl);
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
     url.searchParams.set('apiKey', this.apiKey);
@@ -193,11 +212,25 @@ export class OddsPapiAdapter implements OddsProvider {
     ];
     if (tournamentIds.length === 0) return [];
 
-    const payload = await this.getJson('/v4/odds-by-tournaments', {
-      tournamentIds: tournamentIds.join(','),
-      oddsFormat: 'decimal',
-    });
-    const fixtures = assertArray(payload);
-    return fixtures.flatMap((fixture) => extractOddsPairs(fixture));
+    // La API exige exactamente un bookmaker por request; el pacing global hace el cooldown.
+    const tournamentBatches: number[][] = [];
+    for (let i = 0; i < tournamentIds.length; i += TOURNAMENT_BATCH_SIZE) {
+      tournamentBatches.push(tournamentIds.slice(i, i + TOURNAMENT_BATCH_SIZE));
+    }
+    const pairs: OddsPair[] = [];
+    for (const batch of tournamentBatches) {
+      const payload = await this.getJson('/v4/odds-by-tournaments', {
+        tournamentIds: batch.join(','),
+        bookmaker: ODDS_BOOKMAKER,
+        oddsFormat: 'decimal',
+      });
+      const fixtures = assertArray(payload);
+      pairs.push(...fixtures.flatMap((fixture) => extractOddsPairs(fixture)));
+    }
+    return pairs;
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
