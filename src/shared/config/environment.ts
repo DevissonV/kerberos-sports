@@ -30,6 +30,7 @@ export const environmentSchema = z
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_CHAT_ID: z.string().optional(),
     PAPER_BETS_DB_PATH: z.string().default('data/kerberos-sports.db'),
+    MANUAL_LEDGER_DB_PATH: z.string().default('data/kerberos-sports-ledger.db'),
     PAPER_ONLY: booleanFromString,
     REFINEMENT_MODE: refinementBoolean,
     MAX_ODDSPAPI_FULL_SCANS_PER_DAY: z.coerce.number().int().positive().default(2),

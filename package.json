@@ -15,6 +15,7 @@
     "start:prod": "node dist/main.js",
     "scan": "npm run build && node -r dotenv/config dist/cli/scan.js",
     "settle": "npm run build && node -r dotenv/config dist/cli/settle.js",
+    "ledger": "npm run build && node -r dotenv/config dist/cli/manualLedger.js",
     "telegram:smoke": "npm run build && node -r dotenv/config dist/cli/telegramSmoke.js",
     "poisson:smoke": "npm run build && node -r dotenv/config dist/cli/poissonSmoke.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
