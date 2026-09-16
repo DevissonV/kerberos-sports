@@ -33,12 +33,45 @@ export const environmentSchema = z
     PAPER_ONLY: booleanFromString,
     REFINEMENT_MODE: refinementBoolean,
     MAX_ODDSPAPI_FULL_SCANS_PER_DAY: z.coerce.number().int().positive().default(2),
+    PRODUCTION_RISK_BASE_STAKE_COP: z.coerce.number().int().positive().default(10_000),
+    PRODUCTION_RISK_ELEVATED_STAKE_COP: z.coerce.number().int().positive().default(15_000),
+    PRODUCTION_RISK_HIGH_STAKE_COP: z.coerce.number().int().positive().default(20_000),
+    PRODUCTION_RISK_MAX_STAKE_COP: z.coerce.number().int().positive().max(20_000).default(20_000),
+    PRODUCTION_RISK_MAX_BETS_PER_DAY: z.coerce.number().int().nonnegative().default(3),
+    PRODUCTION_RISK_MAX_DAILY_EXPOSURE_COP: z.coerce.number().int().positive().default(30_000),
+    PRODUCTION_RISK_MAX_DAILY_LOSS_COP: z.coerce.number().int().positive().default(30_000),
+    PRODUCTION_RISK_MAX_OPEN_BETS: z.coerce.number().int().nonnegative().default(2),
+    PRODUCTION_RISK_KILL_SWITCH: refinementBoolean,
+    PRODUCTION_RISK_MANUAL_PAUSE: refinementBoolean,
+    PRODUCTION_RISK_ENABLE_ELEVATED: refinementBoolean,
+    PRODUCTION_RISK_ENABLE_HIGH: refinementBoolean,
+    PRODUCTION_RISK_ACTIVE_TIER: z.enum(['BASE', 'ELEVATED', 'HIGH']).default('BASE'),
   })
   .superRefine((env, context) => {
     if (!env.PAPER_ONLY) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'PAPER_ONLY debe ser true: Kerberos Sports es PAPER FIRST (sin ejecución real)',
+      });
+    }
+    if (
+      env.PRODUCTION_RISK_BASE_STAKE_COP > env.PRODUCTION_RISK_ELEVATED_STAKE_COP ||
+      env.PRODUCTION_RISK_ELEVATED_STAKE_COP > env.PRODUCTION_RISK_HIGH_STAKE_COP ||
+      env.PRODUCTION_RISK_HIGH_STAKE_COP > env.PRODUCTION_RISK_MAX_STAKE_COP
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Los tiers de riesgo deben ser crecientes y no superar PRODUCTION_RISK_MAX_STAKE_COP',
+      });
+    }
+    if (
+      (env.PRODUCTION_RISK_ACTIVE_TIER === 'ELEVATED' && !env.PRODUCTION_RISK_ENABLE_ELEVATED) ||
+      (env.PRODUCTION_RISK_ACTIVE_TIER === 'HIGH' && !env.PRODUCTION_RISK_ENABLE_HIGH)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'PRODUCTION_RISK_ACTIVE_TIER requiere habilitar explícitamente el tier elegido',
       });
     }
   });

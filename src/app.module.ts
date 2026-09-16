@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { createConfig } from './shared/config/configuration';
 import { validateEnvironment } from './shared/config/environment';
 import { NotificationsModule } from './features/notifications/notifications.module';
+import { ProductionRiskModule } from './features/production-risk/production-risk.module';
 import { ScanningModule } from './features/scanning/scanning.module';
 
 /**
@@ -23,6 +24,7 @@ import { ScanningModule } from './features/scanning/scanning.module';
     }),
     ScanningModule,
     NotificationsModule,
+    ProductionRiskModule,
   ],
 })
 export class AppModule {}

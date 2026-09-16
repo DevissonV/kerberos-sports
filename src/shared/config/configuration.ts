@@ -31,6 +31,21 @@ export interface AppConfig {
   paperBetsDbPath: string;
   refinementMode: boolean;
   maxOddsPapiFullScansPerDay: number;
+  productionRisk: {
+    baseStakeCop: number;
+    elevatedStakeCop: number;
+    highStakeCop: number;
+    maxStakeCop: number;
+    maxBetsPerDay: number;
+    maxDailyExposureCop: number;
+    maxDailyLossCop: number;
+    maxOpenBets: number;
+    killSwitch: boolean;
+    manualPause: boolean;
+    enableElevated: boolean;
+    enableHigh: boolean;
+    activeTier: 'BASE' | 'ELEVATED' | 'HIGH';
+  };
 }
 
 /** Variables de entorno cuyo valor es un secreto y debe redactarse en logs. */
@@ -69,7 +84,28 @@ export function createConfig(): AppConfig {
     paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',
     refinementMode: process.env.REFINEMENT_MODE === 'true',
     maxOddsPapiFullScansPerDay: Number(process.env.MAX_ODDSPAPI_FULL_SCANS_PER_DAY ?? 2),
+    productionRisk: {
+      baseStakeCop: Number(process.env.PRODUCTION_RISK_BASE_STAKE_COP ?? 10_000),
+      elevatedStakeCop: Number(process.env.PRODUCTION_RISK_ELEVATED_STAKE_COP ?? 15_000),
+      highStakeCop: Number(process.env.PRODUCTION_RISK_HIGH_STAKE_COP ?? 20_000),
+      maxStakeCop: Number(process.env.PRODUCTION_RISK_MAX_STAKE_COP ?? 20_000),
+      maxBetsPerDay: Number(process.env.PRODUCTION_RISK_MAX_BETS_PER_DAY ?? 3),
+      maxDailyExposureCop: Number(process.env.PRODUCTION_RISK_MAX_DAILY_EXPOSURE_COP ?? 30_000),
+      maxDailyLossCop: Number(process.env.PRODUCTION_RISK_MAX_DAILY_LOSS_COP ?? 30_000),
+      maxOpenBets: Number(process.env.PRODUCTION_RISK_MAX_OPEN_BETS ?? 2),
+      killSwitch: process.env.PRODUCTION_RISK_KILL_SWITCH === 'true',
+      manualPause: process.env.PRODUCTION_RISK_MANUAL_PAUSE === 'true',
+      enableElevated: process.env.PRODUCTION_RISK_ENABLE_ELEVATED === 'true',
+      enableHigh: process.env.PRODUCTION_RISK_ENABLE_HIGH === 'true',
+      activeTier: productionRiskActiveTier(),
+    },
   };
+}
+
+function productionRiskActiveTier(): AppConfig['productionRisk']['activeTier'] {
+  const tier = process.env.PRODUCTION_RISK_ACTIVE_TIER;
+  if (tier === 'ELEVATED' || tier === 'HIGH') return tier;
+  return 'BASE';
 }
 
 export const config: AppConfig = createConfig();

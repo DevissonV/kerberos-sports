@@ -9,6 +9,8 @@ describe('validateEnvironment', () => {
       ODDSPAPI_BASE_URL: 'https://api.oddspapi.io',
       PAPER_BETS_DB_PATH: 'data/kerberos-sports.db',
       PAPER_ONLY: true,
+      PRODUCTION_RISK_BASE_STAKE_COP: 10_000,
+      PRODUCTION_RISK_ENABLE_ELEVATED: false,
     });
   });
 
@@ -42,6 +44,24 @@ describe('validateEnvironment', () => {
     expect(parsed.OPENAI_COMPATIBLE_API_KEY).toBe('test-key');
     expect(parsed.OPENAI_COMPATIBLE_MODEL).toBe('gpt-5.6-luna');
     expect(parsed.OPENAI_COMPATIBLE_BASE_URL).toBe('https://api.example.test/v1');
+  });
+
+  it('mantiene conservador el gate de producción y limita su stake a 20k COP', () => {
+    const parsed = validateEnvironment({
+      PRODUCTION_RISK_ENABLE_ELEVATED: 'true',
+      PRODUCTION_RISK_ENABLE_HIGH: 'true',
+      PRODUCTION_RISK_ACTIVE_TIER: 'HIGH',
+    });
+    expect(parsed.PRODUCTION_RISK_MAX_STAKE_COP).toBe(20_000);
+    expect(parsed.PRODUCTION_RISK_ENABLE_ELEVATED).toBe(true);
+    expect(parsed.PRODUCTION_RISK_ENABLE_HIGH).toBe(true);
+    expect(() => validateEnvironment({ PRODUCTION_RISK_MAX_STAKE_COP: '20001' })).toThrow();
+  });
+
+  it('rechaza activar un tier sin su habilitación administrativa explícita', () => {
+    expect(() => validateEnvironment({ PRODUCTION_RISK_ACTIVE_TIER: 'HIGH' })).toThrow(
+      /requiere habilitar explícitamente/,
+    );
   });
 
   it('usa PAPER_BETS_DB_PATH cuando está definido y conserva el fallback local', () => {
