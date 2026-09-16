@@ -12,4 +12,5 @@
 
 - `backup/release-before-realign-20260915-1531`, `feature/ks-02`, `feature/ks-03` y `recovery/ks-04` no son ancestros de `release`. `git branch -d` las rechazó y no se utilizó `-D`.
 - `rescue/pre-sync-2026-09-16` conserva handoffs históricos y otros cambios no presentes en la rama integrada, además del Tennis ya archivado; no es seguro borrarla sin una auditoría específica.
-- Las remotas `origin/feature/multileague-live` e `origin/integration/ks-global-01` están plenamente integradas y son candidatas seguras a borrar. `origin/backup/release-before-realign-20260915-1531` no está integrada y se conserva.
+- Se eliminaron las remotas plenamente integradas `origin/feature/multileague-live` e `origin/integration/ks-global-01`. `origin/backup/release-before-realign-20260915-1531` no está integrada y se conserva.
+- Antes de esta actualización, Railway terminó correctamente el despliegue automático del commit `1a9c84d` en la rama `release`.
