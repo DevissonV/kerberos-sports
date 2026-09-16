@@ -42,3 +42,11 @@ No se promocionó ninguna liga sólo por ausencia de partido actual: la promoci�
 se basa en dataset, aliases, smoke Poisson, identidad de liga y tests. El
 snapshot live no coincidió con T-6h, por lo que no hubo par Pinnacle/Bet365 que
 validar en tiempo real ni mensaje Telegram de análisis que confirmar.
+
+## Publicación
+
+`main` y `release` quedaron en `94df602bc91ce6381984bc7732ab073c29edcad4`.
+Railway recibió el commit desde `release` y confirmó deploy `SUCCESS` (build-only,
+servicio cron `*/30 * * * *`). Al cierre aún no había logs de un tick cloud de este
+commit; por tanto Telegram y los contadores cloud del primer tick quedan pendientes
+del próximo cron, no se declaran verificados.
