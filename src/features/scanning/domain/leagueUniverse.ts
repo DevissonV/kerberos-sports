@@ -28,9 +28,11 @@ export interface LeagueDefinition {
   modelVersion: string | null;
   /** Dataset versionado local; `null` mantiene la liga fuera de modelo. */
   historicalDataset: string | null;
+  /** Etiqueta humana para canales de operación; los contadores siempre se calculan en runtime. */
+  heartbeatLabel: string;
 }
 
-/** Universo V1: 1 liga con modelo validado + 6 ligas en observación pura. */
+/** Universo V1: 1 liga con modelo validado y ligas candidatas en observación pura. */
 export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
   {
     leagueId: PROTOCOL_LEAGUE_ID,
@@ -40,6 +42,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: PROTOCOL_COHORT_ID,
     modelVersion: POISSON_MODEL_VERSION,
     historicalDataset: 'premier-league',
+    heartbeatLabel: '🇬🇧 Premier League',
   },
   {
     leagueId: 239,
@@ -49,6 +52,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: null,
     modelVersion: null,
     historicalDataset: null,
+    heartbeatLabel: '🇨🇴 Liga BetPlay',
   },
   {
     leagueId: 140,
@@ -58,6 +62,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: 'KSS-V1-C03-ESP',
     modelVersion: null,
     historicalDataset: 'la-liga',
+    heartbeatLabel: '🇪🇸 LaLiga',
   },
   {
     leagueId: 135,
@@ -67,6 +72,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: 'KSS-V1-C04-ITA',
     modelVersion: null,
     historicalDataset: 'serie-a',
+    heartbeatLabel: '🇮🇹 Serie A',
   },
   {
     leagueId: 78,
@@ -76,6 +82,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: 'KSS-V1-C05-GER',
     modelVersion: null,
     historicalDataset: 'bundesliga',
+    heartbeatLabel: '🇩🇪 Bundesliga',
   },
   {
     leagueId: 61,
@@ -85,6 +92,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: 'KSS-V1-C06-FRA',
     modelVersion: null,
     historicalDataset: 'ligue-1',
+    heartbeatLabel: '🇫🇷 Ligue 1',
   },
   {
     leagueId: 88,
@@ -94,6 +102,27 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     cohortId: 'KSS-V1-C07-NED',
     modelVersion: null,
     historicalDataset: 'eredivisie',
+    heartbeatLabel: '🇳🇱 Eredivisie',
+  },
+  {
+    leagueId: 94,
+    country: 'Portugal',
+    canonicalName: 'Primeira Liga',
+    status: 'OBSERVATION_ONLY',
+    cohortId: 'KSS-V1-C08-POR',
+    modelVersion: null,
+    historicalDataset: 'primeira-liga',
+    heartbeatLabel: '🇵🇹 Primeira Liga',
+  },
+  {
+    leagueId: 144,
+    country: 'Belgium',
+    canonicalName: 'Belgian Pro League',
+    status: 'OBSERVATION_ONLY',
+    cohortId: 'KSS-V1-C09-BEL',
+    modelVersion: null,
+    historicalDataset: 'belgian-pro-league',
+    heartbeatLabel: '🇧🇪 Pro League',
   },
 ];
 

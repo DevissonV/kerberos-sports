@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HistoricalMatch } from '../domain/concepts';
 import { parseFootballDataCsv } from '../domain/csvParser';
+import { resolveCanonicalTeamNameForDataset } from '../domain/teamAliases';
 
 const HISTORICAL_CSV_FILES = ['2425-E0.csv', '2526-E0.csv', '2627-E0.csv'];
 const MULTI_LEAGUE_CSV_FILES = ['2425-SP1.csv', '2526-SP1.csv', '2627-SP1.csv'] as const;
@@ -19,6 +20,8 @@ const DATASET_FILES: Readonly<Record<string, readonly string[]>> = {
   bundesliga: ['2425-D1.csv', '2526-D1.csv', '2627-D1.csv'],
   'ligue-1': ['2425-F1.csv', '2526-F1.csv', '2627-F1.csv'],
   eredivisie: ['2425-N1.csv', '2526-N1.csv', '2627-N1.csv'],
+  'primeira-liga': ['2425-P1.csv', '2526-P1.csv', '2627-P1.csv'],
+  'belgian-pro-league': ['2425-B1.csv', '2526-B1.csv', '2627-B1.csv'],
 };
 
 /** Carga y combina los CSVs versionados de Premier League en un único set de partidos. */
@@ -42,6 +45,8 @@ export function loadHistoricalMatchesForDataset(
   const files = DATASET_FILES[dataset];
   if (files === undefined) return [];
   return files.flatMap((fileName) =>
-    parseFootballDataCsv(readFileSync(join(dataRoot, dataset, fileName), 'utf-8'), (name) => name),
+    parseFootballDataCsv(readFileSync(join(dataRoot, dataset, fileName), 'utf-8'), (name) =>
+      resolveCanonicalTeamNameForDataset(dataset, name),
+    ),
   );
 }

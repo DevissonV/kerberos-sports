@@ -31,11 +31,11 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(modelEnabled).toHaveLength(1);
   });
 
-  it('el resto del universo V1 es OBSERVATION_ONLY sin cohorte', () => {
+  it('el resto del universo V1 es OBSERVATION_ONLY', () => {
     const observationOnly = LEAGUE_UNIVERSE.filter(
       (league) => league.status === 'OBSERVATION_ONLY',
     );
-    expect(observationOnly).toHaveLength(6);
+    expect(observationOnly).toHaveLength(8);
   });
 
   it('Colombia y LaLiga permanecen OBSERVATION_ONLY', () => {
@@ -45,6 +45,25 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe(
       'OBSERVATION_ONLY',
     );
+  });
+
+  it('Portugal y Bélgica conservan cohortes propias y fallan cerradas mientras observan', () => {
+    const portugal = LEAGUE_UNIVERSE.find((league) => league.leagueId === 94);
+    const belgium = LEAGUE_UNIVERSE.find((league) => league.leagueId === 144);
+    expect(portugal).toMatchObject({
+      country: 'Portugal',
+      cohortId: 'KSS-V1-C08-POR',
+      historicalDataset: 'primeira-liga',
+      status: 'OBSERVATION_ONLY',
+    });
+    expect(belgium).toMatchObject({
+      country: 'Belgium',
+      cohortId: 'KSS-V1-C09-BEL',
+      historicalDataset: 'belgian-pro-league',
+      status: 'OBSERVATION_ONLY',
+    });
+    expect(isModelEnabled(fixture({ leagueId: 94, country: 'Portugal' }))).toBe(false);
+    expect(isModelEnabled(fixture({ leagueId: 144, country: 'Belgium' }))).toBe(false);
   });
 
   it('liga fuera del universo (copa, youth, seleccion) es EXCLUDED, fail-closed', () => {
@@ -85,6 +104,8 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Bundesliga',
       'Ligue 1',
       'Eredivisie',
+      'Primeira Liga',
+      'Belgian Pro League',
     ]);
     expect(summary[0]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
     expect(summary[1]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });

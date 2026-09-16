@@ -1,19 +1,11 @@
 import type { RefinementCounters } from '../../quant/ports/refinementStore';
-import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
-
-/** Bandera + nombre visible por liga, para el heartbeat humano (nunca IDs técnicos). */
-const LEAGUE_DISPLAY: Record<number, string> = {
-  39: '🇬🇧 Premier League',
-  239: '🇨🇴 Liga BetPlay',
-  140: '🇪🇸 LaLiga',
-  135: '🇮🇹 Serie A',
-  78: '🇩🇪 Bundesliga',
-  61: '🇫🇷 Ligue 1',
-  88: '🇳🇱 Eredivisie',
-};
+import { LEAGUE_UNIVERSE, type LeagueStatus } from '../../scanning/domain/leagueUniverse';
 
 function leagueLabel(leagueId: number): string {
-  return LEAGUE_DISPLAY[leagueId] ?? `Liga ${leagueId}`;
+  return (
+    LEAGUE_UNIVERSE.find((league) => league.leagueId === leagueId)?.heartbeatLabel ??
+    `Liga ${leagueId}`
+  );
 }
 
 export interface RefinementHeartbeatLeague {

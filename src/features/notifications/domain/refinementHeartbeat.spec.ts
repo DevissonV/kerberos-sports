@@ -67,4 +67,31 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).toContain('🌙 Luna utilizada: Sí');
     expect(message).not.toMatch(/leagueId|39|140|135/);
   });
+
+  it('obtiene Portugal y Bélgica del registry y conserva su estado de observación', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-15T12:00:00Z'),
+      openBets: 0,
+      byLeague: [
+        { leagueId: 94, status: 'OBSERVATION_ONLY', fixturesDetected: 3 },
+        { leagueId: 144, status: 'OBSERVATION_ONLY', fixturesDetected: 4 },
+      ],
+      counters: {
+        ticks: 1,
+        precheckOnly: 0,
+        eligibleFixtures: 0,
+        decisionSnapshotsCaptured: 0,
+        fullOddsScans: 0,
+        oddsPapiRequests: 0,
+        quantCandidates: 0,
+        paperBetsCreated: 0,
+        lunaCalls: 0,
+        settlements: 0,
+        errors: 0,
+      },
+    });
+    expect(message).toContain('🇵🇹 Primeira Liga: 3');
+    expect(message).toContain('🇧🇪 Pro League: 4');
+    expect(message).toContain('7 partidos');
+  });
 });
