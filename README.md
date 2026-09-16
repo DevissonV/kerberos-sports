@@ -9,8 +9,7 @@ aquí no se toca nada del stack de trading: sin Binance, sin futures, sin exchan
 
 - **Sport:** `FOOTBALL` (único).
 - **Modo:** PAPER ONLY. Nada se ejecuta contra dinero real ni contra brokers/casas de apuestas.
-- **Cohorte congelada `KSS-V1-C01`** (ver `resources/temp/KSS-PROTOCOL-01.md`, fuente
-  autoritativa del protocolo): English Premier League única (`league.id=39`, `country=England`
+- **Cohorte congelada `KSS-V1-C01`**: English Premier League única (`league.id=39`, `country=England`
   — nunca por nombre de liga), mercado `OVER_UNDER_2_5`, ventana de decisión `T-6h`,
   bookmaker primario `Pinnacle` con fallback `Bet365`. `MATCH_WINNER` queda descartado como
   mercado de esta cohorte (se mencionaba antes como "candidato, no congelado"; ya no aplica).
@@ -99,13 +98,13 @@ src/
     logging/                       # logger simple stdout
     health/                        # health check en memoria
 test/                              # jest specs (unitarios) + *.e2e-spec.ts (Nest real, ESM)
-resources/temp/                    # temporales, ignorado por git excepto .gitkeep y handoffs
+resources/temp/                    # temporales, ignorado por git
 ```
 
 ## Reglas
 
 - No deploy (Railway u otro), no PostgreSQL remoto, no Telegram, no APIs pagas.
-- `resources/temp/` está ignorado por Git (salvo `.gitkeep` y handoffs `KSS-T*-handoff.md`).
+- `resources/temp/` está ignorado por Git por completo.
 - `bot-kerberos` es solo referencia técnica; jamás se modifica desde aquí.
 
 ## Preparación de despliegue (NO desplegado aún)

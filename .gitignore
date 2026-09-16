@@ -8,20 +8,7 @@ coverage
 npm-debug.log*
 manual-quotes.json
 .DS_Store
-resources/temp/*
-!resources/temp/.gitkeep
-!resources/temp/KSS-T*-handoff.md
-!resources/temp/KSS-T01B-architecture-correction.md
-!resources/temp/KSS-004B-deployment-readiness.md
-!resources/temp/KSS-ARCH-NEST-handoff.md
-!resources/temp/KSS-DATA-GATE-01-handoff.md
-!resources/temp/KSS-PIPELINE-PROTOCOL-01-handoff.md
-!resources/temp/KSS-FOOTBALL-EXPAND-PT-BE-01-handoff.md
+resources/temp/
 
 # SQLite local de PaperBets (PAPER ONLY, local/durable por runtime)
 data/
-!resources/temp/KSS-QUANT-VERTICAL-01-handoff.md
-!resources/temp/KSS-LUNA-SHADOW-01-handoff.md
-!resources/temp/KSS-GLOBAL-INTEGRATION-DEPLOY-01-handoff.md
-!resources/temp/KSS-*-handoff.md
-!resources/temp/KSS-*-VERIFY-*.md
