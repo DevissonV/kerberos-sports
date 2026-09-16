@@ -20,6 +20,11 @@ export interface RefinementHeartbeatInput {
   byLeague: readonly RefinementHeartbeatLeague[];
   counters: RefinementCounters;
   openBets: number;
+  fixturesModelled?: number;
+  bets?: number;
+  noBets?: number;
+  insufficientData?: number;
+  oddsUnavailable?: number;
   error?: string;
 }
 
@@ -35,13 +40,17 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     '',
     hasError ? '⚠️ Revisión completada con una incidencia' : '✅ Revisión completada',
     '',
-    'Partidos detectados:',
+    `Partidos detectados: ${totalDetected}`,
+    `Partidos con modelo: ${input.byLeague.filter((league) => league.status === 'MODEL_ENABLED').reduce((sum, league) => sum + league.fixturesDetected, 0)}`,
+    `Analizados: ${input.fixturesModelled ?? 0}`,
+    `BET: ${input.bets ?? 0}`,
+    `NO BET: ${input.noBets ?? 0}`,
+    `Sin odds: ${input.oddsUnavailable ?? 0}`,
+    `Datos insuficientes: ${input.insufficientData ?? 0}`,
     '',
     ...input.byLeague.map(
       (league) => `${leagueLabel(league.leagueId)}: ${league.fixturesDetected}`,
     ),
-    '',
-    `Total: ${totalDetected}`,
     '',
     '📊 Con modelo habilitado:',
     ...modelEnabled.map((league) => `${leagueLabel(league.leagueId)}: ${league.fixturesDetected}`),

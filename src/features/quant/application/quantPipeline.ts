@@ -66,6 +66,16 @@ export interface PreparedQuantBet {
   side: QuantSideEvaluation;
 }
 
+/** Evidencia de una decisión por fixture; `NO_BET` nunca genera una PaperBet. */
+export interface QuantFixtureAnalysis {
+  fixture: Fixture;
+  pair: OddsPair;
+  model: PoissonModelOutput;
+  side?: QuantSideEvaluation;
+  decision: 'BET' | 'NO_BET';
+  reason?: keyof QuantRejectedBuckets;
+}
+
 export interface QuantRejectedBuckets {
   /** Liga sin modelo validado (`status !== MODEL_ENABLED`): fail-closed, nunca corre Poisson. */
   LEAGUE_NOT_ENABLED: number;
@@ -85,6 +95,7 @@ export interface QuantPipelineResult {
   /** Fixtures que pasan TODO el gate y el riesgo. */
   passedGate: number;
   prepared: PreparedQuantBet[];
+  analyses: QuantFixtureAnalysis[];
   duplicates: PaperBetKey[];
   rejected: QuantRejectedBuckets;
   /** Shortlist prospectiva para Luna: válida para QUANT, antes de riesgo/PaperBet. */
@@ -111,6 +122,7 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
   let quantCandidates = 0;
   let passedGate = 0;
   const bucket: QuantGateEntry[] = [];
+  const analyses: QuantFixtureAnalysis[] = [];
 
   for (const candidate of candidatesByFixture.values()) {
     // Model gate (defensa en profundidad): aunque el candidato ya llegó filtrado por
@@ -160,6 +172,14 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
     const evaluation = evaluateQuantPair(poisson.output, pair, QUANT_GATE);
     if (evaluation.status === 'REJECTED') {
       rejected[evaluation.reason] += 1;
+      analyses.push({
+        fixture: candidate.fixture,
+        pair,
+        model: poisson.output,
+        side: evaluation.side,
+        decision: 'NO_BET',
+        reason: evaluation.reason,
+      });
       continue;
     }
     quantCandidates += 1;
@@ -212,11 +232,24 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
     candidate: entry.candidate,
     expectedValue: entry.side.expectedValue,
   }));
+  const preparedFixtureIds = new Set(prepared.map((entry) => String(entry.bet.fixtureId)));
+  for (const entry of bucket) {
+    const isBet = preparedFixtureIds.has(entry.candidate.fixture.id);
+    analyses.push({
+      fixture: entry.candidate.fixture,
+      pair: entry.pair,
+      model: entry.model,
+      side: entry.side,
+      decision: isBet ? 'BET' : 'NO_BET',
+      reason: isBet ? undefined : 'RISK',
+    });
+  }
   return {
     poissonModeled,
     quantCandidates,
     passedGate,
     prepared,
+    analyses,
     duplicates,
     rejected,
     shadowShortlist,

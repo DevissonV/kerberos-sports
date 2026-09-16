@@ -202,6 +202,7 @@ describe('runQuantPipeline', () => {
     expect(result.passedGate).toBe(0);
     expect(result.prepared).toHaveLength(0);
     expect(result.rejected.EDGE).toBe(1);
+    expect(result.analyses).toMatchObject([{ decision: 'NO_BET', reason: 'EDGE' }]);
   });
 
   it('gate MIN_EV: edge suficiente pero EV insuficiente rechaza (EV)', () => {

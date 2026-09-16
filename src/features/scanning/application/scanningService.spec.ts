@@ -45,10 +45,10 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
 
     expect(output.rawFixtures).toBe(4);
-    expect(output.eligibleFixtures).toBe(3);
-    expect(output.fixtures).toHaveLength(3);
+    expect(output.eligibleFixtures).toBe(2);
+    expect(output.fixtures).toHaveLength(2);
     expect(output.fixtures[0]?.fixture.id).toBe('1');
-    expect(output.observationFixtures).toBe(0);
+    expect(output.observationFixtures).toBe(1);
 
     const byStatus = Object.fromEntries(
       output.byLeague.map((entry) => [entry.canonicalName, entry]),
@@ -58,14 +58,14 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
       fixturesDetected: 1,
     });
     expect(byStatus['Liga BetPlay']).toMatchObject({
-      status: 'MODEL_ENABLED',
+      status: 'OBSERVATION_ONLY',
       fixturesDetected: 1,
     });
     expect(byStatus['LaLiga']).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
   });
 
   it('liga productiva entra a la ventana cuando cumple la identidad de liga', async () => {
-    const fixtures = [fixture('1', 239, 'Colombia', 'Primera A')];
+    const fixtures = [fixture('1', 140, 'Spain', 'LaLiga')];
     const service = makeService(fixtures);
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
     expect(output.decisionWindowFixtures).toHaveLength(1);

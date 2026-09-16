@@ -31,40 +31,49 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(mls?.status).toBe('MODEL_ENABLED');
     expect(mls?.cohortId).toBe('KSS-V1-C10-USA');
     const modelEnabled = LEAGUE_UNIVERSE.filter((league) => league.status === 'MODEL_ENABLED');
-    expect(modelEnabled).toHaveLength(4);
+    expect(modelEnabled).toHaveLength(9);
   });
 
   it('las ligas fuera del alcance productivo permanecen OBSERVATION_ONLY', () => {
     const observationOnly = LEAGUE_UNIVERSE.filter(
       (league) => league.status === 'OBSERVATION_ONLY',
     );
-    expect(observationOnly).toHaveLength(6);
+    expect(observationOnly).toHaveLength(1);
   });
 
-  it('las cuatro ligas productivas están habilitadas', () => {
+  it('Europa habilitada y Colombia en observación', () => {
     expect(resolveLeagueStatus(fixture({ leagueId: 239, country: 'Colombia' }))).toBe(
-      'MODEL_ENABLED',
+      'OBSERVATION_ONLY',
     );
-    expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe('MODEL_ENABLED');
+    for (const [leagueId, country] of [
+      [140, 'Spain'],
+      [135, 'Italy'],
+      [78, 'Germany'],
+      [61, 'France'],
+      [88, 'Netherlands'],
+      [94, 'Portugal'],
+      [144, 'Belgium'],
+    ] as const)
+      expect(resolveLeagueStatus(fixture({ leagueId, country }))).toBe('MODEL_ENABLED');
   });
 
-  it('Portugal y Bélgica conservan cohortes propias y fallan cerradas mientras observan', () => {
+  it('Portugal y Bélgica conservan cohortes y modelos propios', () => {
     const portugal = LEAGUE_UNIVERSE.find((league) => league.leagueId === 94);
     const belgium = LEAGUE_UNIVERSE.find((league) => league.leagueId === 144);
     expect(portugal).toMatchObject({
       country: 'Portugal',
       cohortId: 'KSS-V1-C08-POR',
       historicalDataset: 'primeira-liga',
-      status: 'OBSERVATION_ONLY',
+      status: 'MODEL_ENABLED',
     });
     expect(belgium).toMatchObject({
       country: 'Belgium',
       cohortId: 'KSS-V1-C09-BEL',
       historicalDataset: 'belgian-pro-league',
-      status: 'OBSERVATION_ONLY',
+      status: 'MODEL_ENABLED',
     });
-    expect(isModelEnabled(fixture({ leagueId: 94, country: 'Portugal' }))).toBe(false);
-    expect(isModelEnabled(fixture({ leagueId: 144, country: 'Belgium' }))).toBe(false);
+    expect(isModelEnabled(fixture({ leagueId: 94, country: 'Portugal' }))).toBe(true);
+    expect(isModelEnabled(fixture({ leagueId: 144, country: 'Belgium' }))).toBe(true);
   });
 
   it('liga fuera del universo (copa, youth, seleccion) es EXCLUDED, fail-closed', () => {
@@ -110,7 +119,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Major League Soccer',
     ]);
     expect(summary[0]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
-    expect(summary[1]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 2 });
+    expect(summary[1]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });
     expect(summary[2]?.fixturesDetected).toBe(0);
     const total = summary.reduce((sum, entry) => sum + entry.fixturesDetected, 0);
     expect(total).toBe(3);

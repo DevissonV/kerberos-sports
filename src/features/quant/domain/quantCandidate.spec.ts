@@ -79,7 +79,7 @@ describe('evaluateQuantPair', () => {
   it('gate MIN_EDGE: edge por debajo del umbral rechaza (EDGE)', () => {
     // edge exactamente 0.0395 < 0.04
     const result = evaluateQuantPair(makeModel(0.556), makePair(1.75, 2.18));
-    expect(result).toEqual({ status: 'REJECTED', reason: 'EDGE' });
+    expect(result).toMatchObject({ status: 'REJECTED', reason: 'EDGE' });
   });
 
   it('gate MIN_EV: edge suficiente pero EV insuficiente rechaza (EV)', () => {
@@ -90,7 +90,7 @@ describe('evaluateQuantPair', () => {
       minOdds: 1.2,
       maxOdds: 2.9,
     });
-    expect(result).toEqual({ status: 'REJECTED', reason: 'EV' });
+    expect(result).toMatchObject({ status: 'REJECTED', reason: 'EV' });
   });
 
   it('gate ODDS_RANGE: cuota fuera de [1.70, 2.20] rechaza', () => {
@@ -100,14 +100,14 @@ describe('evaluateQuantPair', () => {
       minOdds: 1.7,
       maxOdds: 2.2,
     });
-    expect(below).toEqual({ status: 'REJECTED', reason: 'ODDS_RANGE' });
+    expect(below).toMatchObject({ status: 'REJECTED', reason: 'ODDS_RANGE' });
     const above = evaluateQuantPair(makeModel(0.47), makePair(2.3, 1.66), {
       minEdge: 0.01,
       minEv: 0.01,
       minOdds: 1.5,
       maxOdds: 2.2,
     });
-    expect(above).toEqual({ status: 'REJECTED', reason: 'ODDS_RANGE' });
+    expect(above).toMatchObject({ status: 'REJECTED', reason: 'ODDS_RANGE' });
   });
 
   it('fail-closed: bookmaker distinto de primary/fallback rechaza (NO_BOOKMAKER)', () => {

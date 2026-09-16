@@ -41,6 +41,9 @@ export interface RefinementTickSummary {
   fixtureCacheHit: boolean;
   fixtureCacheAgeMinutes: number;
   poissonModeled: number;
+  noBets?: number;
+  insufficientData?: number;
+  oddsUnavailable?: number;
   quantCandidates: number;
   paperBetsCreated: number;
   lunaSelected: number;
@@ -93,8 +96,13 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `oddsPapiRequests=${summary.oddsPapiRequests}`,
     '',
     `poissonModeled=${summary.poissonModeled}`,
+    `ANALYZED_FIXTURES=${summary.poissonModeled}`,
     `quantCandidates=${summary.quantCandidates}`,
     `paperBetsCreated=${summary.paperBetsCreated}`,
+    `BET_COUNT=${summary.paperBetsCreated}`,
+    `NO_BET_COUNT=${summary.noBets ?? 0}`,
+    `NO_ODDS_COUNT=${summary.oddsUnavailable ?? 0}`,
+    `INSUFFICIENT_DATA_COUNT=${summary.insufficientData ?? 0}`,
     '',
     `lunaSelected=${summary.lunaSelected}`,
     `lunaCalls=${summary.lunaCalls}`,
@@ -153,6 +161,9 @@ export class RefinementService {
       fixtureCacheHit: false,
       fixtureCacheAgeMinutes: 0,
       poissonModeled: 0,
+      noBets: 0,
+      insufficientData: 0,
+      oddsUnavailable: 0,
       quantCandidates: 0,
       paperBetsCreated: 0,
       lunaSelected: 0,
@@ -213,6 +224,14 @@ export class RefinementService {
         tick.poissonModeled = result.result.poissonModeled;
         tick.quantCandidates = result.result.quantCandidates;
         tick.paperBetsCreated = result.paperBetsCreated;
+        tick.noBets =
+          result.result.analyses?.filter((analysis) => analysis.decision === 'NO_BET').length ?? 0;
+        tick.insufficientData = result.result.rejected?.MODEL_DATA ?? 0;
+        tick.oddsUnavailable = Math.max(
+          0,
+          (result.scan?.report.temporalEligible ?? 0) -
+            (result.scan?.report.candidatesNormalized ?? 0),
+        );
         tick.telegramBetMessages = result.telegramSent;
         tick.lunaSelected = result.luna.selected;
         tick.lunaCalls = result.luna.apiCalls;
@@ -266,6 +285,11 @@ export class RefinementService {
             })),
             counters: countersForHeartbeat(tick),
             openBets: tick.openPaperBets,
+            fixturesModelled: tick.poissonModeled,
+            bets: tick.paperBetsCreated,
+            noBets: tick.noBets,
+            insufficientData: tick.insufficientData,
+            oddsUnavailable: tick.oddsUnavailable,
             error: tick.error,
           }),
         );

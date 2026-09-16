@@ -20,7 +20,7 @@ import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
 import { flushQuantBets } from './flushQuantBets';
-import { formatQuantPaperMessageFor } from './quantRiskMessage';
+import { formatQuantAnalysisMessage } from '../../notifications/domain/quantAnalysisMessage';
 import { LunaShadowService } from '../../luna/application/lunaShadowService';
 import type { Fixture } from '../../scanning/domain/concepts';
 import { ProductionRiskService } from '../../production-risk/application/productionRiskService';
@@ -31,6 +31,7 @@ export interface QuantScanSummary {
   paperBetsCreated: number;
   duplicatesSkipped: number;
   telegramSent: number;
+  analysisMessagesSent: number;
   luna: Awaited<ReturnType<LunaShadowService['evaluate']>>;
 }
 
@@ -84,7 +85,8 @@ export class QuantScanService {
       prepared: result.prepared,
       store: this.paperBetStore,
       send: (message) => this.notifications.send(message),
-      messageFor: (bet) => formatQuantPaperMessageFor(bet, now, this.productionRisk),
+      // El mensaje por fixture se envía debajo, tanto para BET como para NO_BET.
+      messageFor: () => null,
       newId: () => randomUUID(),
       onSendError: (betId, cause) =>
         logger.warn('Telegram fallo para PaperBet nueva', {
@@ -97,12 +99,27 @@ export class QuantScanService {
           error: cause instanceof Error ? cause.message : String(cause),
         }),
     });
+    let analysisMessagesSent = 0;
+    for (const analysis of result.analyses) {
+      const message = formatQuantAnalysisMessage(analysis);
+      if (message === null) continue;
+      try {
+        await this.notifications.send(message);
+        analysisMessagesSent += 1;
+      } catch (cause) {
+        logger.warn('Telegram fallo para análisis QUANT', {
+          fixtureId: analysis.fixture.id,
+          error: cause instanceof Error ? cause.message : String(cause),
+        });
+      }
+    }
     return {
       scan,
       result,
       paperBetsCreated: flush.paperBetsCreated,
       duplicatesSkipped: flush.duplicatesSkipped,
       telegramSent: flush.telegramSent,
+      analysisMessagesSent,
       luna,
     };
   }

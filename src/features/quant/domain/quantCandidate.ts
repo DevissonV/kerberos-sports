@@ -49,7 +49,7 @@ export interface QuantSideEvaluation {
 export type QuantRejectReason = 'NO_BOOKMAKER' | 'EDGE' | 'EV' | 'ODDS_RANGE';
 
 export type QuantSideResult =
-  | { status: 'REJECTED'; reason: QuantRejectReason }
+  | { status: 'REJECTED'; reason: QuantRejectReason; side?: QuantSideEvaluation }
   | { status: 'SELECTED'; side: QuantSideEvaluation };
 
 /**
@@ -82,10 +82,10 @@ export function evaluateQuantPair(
 }
 
 function selectOrReject(side: QuantSideEvaluation, config: QuantGateConfig): QuantSideResult {
-  if (side.edge < config.minEdge) return { status: 'REJECTED', reason: 'EDGE' };
-  if (side.expectedValue < config.minEv) return { status: 'REJECTED', reason: 'EV' };
+  if (side.edge < config.minEdge) return { status: 'REJECTED', reason: 'EDGE', side };
+  if (side.expectedValue < config.minEv) return { status: 'REJECTED', reason: 'EV', side };
   if (side.offeredOdds < config.minOdds || side.offeredOdds > config.maxOdds) {
-    return { status: 'REJECTED', reason: 'ODDS_RANGE' };
+    return { status: 'REJECTED', reason: 'ODDS_RANGE', side };
   }
   return { status: 'SELECTED', side };
 }
