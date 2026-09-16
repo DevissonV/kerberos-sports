@@ -31,23 +31,21 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(mls?.status).toBe('MODEL_ENABLED');
     expect(mls?.cohortId).toBe('KSS-V1-C10-USA');
     const modelEnabled = LEAGUE_UNIVERSE.filter((league) => league.status === 'MODEL_ENABLED');
-    expect(modelEnabled).toHaveLength(2);
+    expect(modelEnabled).toHaveLength(4);
   });
 
-  it('el resto del universo V1 es OBSERVATION_ONLY', () => {
+  it('las ligas fuera del alcance productivo permanecen OBSERVATION_ONLY', () => {
     const observationOnly = LEAGUE_UNIVERSE.filter(
       (league) => league.status === 'OBSERVATION_ONLY',
     );
-    expect(observationOnly).toHaveLength(8);
+    expect(observationOnly).toHaveLength(6);
   });
 
-  it('Colombia y LaLiga permanecen OBSERVATION_ONLY', () => {
+  it('las cuatro ligas productivas están habilitadas', () => {
     expect(resolveLeagueStatus(fixture({ leagueId: 239, country: 'Colombia' }))).toBe(
-      'OBSERVATION_ONLY',
+      'MODEL_ENABLED',
     );
-    expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe(
-      'OBSERVATION_ONLY',
-    );
+    expect(resolveLeagueStatus(fixture({ leagueId: 140, country: 'Spain' }))).toBe('MODEL_ENABLED');
   });
 
   it('Portugal y Bélgica conservan cohortes propias y fallan cerradas mientras observan', () => {
@@ -85,7 +83,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
   it('isModelEnabled: Premier y defensa de protocolo (reserva/cup)', () => {
     expect(isModelEnabled(fixture())).toBe(true);
     expect(isModelEnabled(fixture({ leagueId: 140, country: 'Spain', league: 'LaLiga' }))).toBe(
-      false,
+      true,
     );
     expect(isModelEnabled(fixture({ awayTeam: 'Chelsea II' }))).toBe(false);
     expect(isModelEnabled(fixture({ league: 'FA Cup' }))).toBe(false);
@@ -112,7 +110,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Major League Soccer',
     ]);
     expect(summary[0]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
-    expect(summary[1]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });
+    expect(summary[1]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 2 });
     expect(summary[2]?.fixturesDetected).toBe(0);
     const total = summary.reduce((sum, entry) => sum + entry.fixturesDetected, 0);
     expect(total).toBe(3);

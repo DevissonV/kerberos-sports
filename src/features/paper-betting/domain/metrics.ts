@@ -4,6 +4,7 @@
 /** Bets resueltas y no nulas: base de métricas (VOID excluida). */
 export interface ResolvedBet {
   id: string;
+  league?: string;
   /** Probabilidad asignada por el modelo al momento de registrar la apuesta. */
   modelProbability: number;
   stake: number;
@@ -12,6 +13,8 @@ export interface ResolvedBet {
   /** Cuota de cierre del mercado (opcional). Sin closing odds la bet se excluye de CLV. */
   closingOdds?: number;
 }
+
+export type MetricsByLeague = Readonly<Record<string, MetricsReport>>;
 
 export interface MetricsReport {
   bets: number;
@@ -144,4 +147,24 @@ export function calculateMetrics(
     clv,
     clvSampleSize: clvValues.length,
   };
+}
+
+/** Conserva el desglose por liga para evitar que los agregados oculten diferencias de rendimiento. */
+export function calculateMetricsByLeague(
+  bets: readonly ResolvedBet[],
+  options: { initialBankroll?: number } = {},
+): MetricsByLeague {
+  const grouped = new Map<string, ResolvedBet[]>();
+  for (const bet of bets) {
+    const league = bet.league ?? 'UNKNOWN';
+    const leagueBets = grouped.get(league) ?? [];
+    leagueBets.push(bet);
+    grouped.set(league, leagueBets);
+  }
+  return Object.fromEntries(
+    [...grouped.entries()].map(([league, leagueBets]) => [
+      league,
+      calculateMetrics(leagueBets, options),
+    ]),
+  );
 }

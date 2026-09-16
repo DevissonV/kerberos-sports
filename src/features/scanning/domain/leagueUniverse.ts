@@ -18,8 +18,20 @@ import { POISSON_MODEL_VERSION } from '../../poisson/domain/concepts';
 import type { Fixture } from './concepts';
 
 export type LeagueStatus = 'DISCOVERED' | 'OBSERVATION_ONLY' | 'MODEL_ENABLED' | 'EXCLUDED';
+export type LeagueCode =
+  | 'PREMIER_LEAGUE'
+  | 'MLS'
+  | 'LALIGA'
+  | 'LIGA_BETPLAY'
+  | 'SERIE_A'
+  | 'BUNDESLIGA'
+  | 'LIGUE_1'
+  | 'EREDIVISIE'
+  | 'PRIMEIRA_LIGA'
+  | 'BELGIAN_PRO_LEAGUE';
 
 export interface LeagueDefinition {
+  code: LeagueCode;
   leagueId: number;
   country: string;
   canonicalName: string;
@@ -35,6 +47,7 @@ export interface LeagueDefinition {
 /** Universo V1: 1 liga con modelo validado y ligas candidatas en observación pura. */
 export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
   {
+    code: 'PREMIER_LEAGUE',
     leagueId: PROTOCOL_LEAGUE_ID,
     country: PROTOCOL_COUNTRY,
     canonicalName: 'Premier League',
@@ -45,26 +58,29 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇬🇧 Premier League',
   },
   {
+    code: 'LIGA_BETPLAY',
     leagueId: 239,
     country: 'Colombia',
     canonicalName: 'Liga BetPlay',
-    status: 'OBSERVATION_ONLY',
-    cohortId: null,
-    modelVersion: null,
-    historicalDataset: null,
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C11-COL',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'liga-betplay',
     heartbeatLabel: '🇨🇴 Liga BetPlay',
   },
   {
+    code: 'LALIGA',
     leagueId: 140,
     country: 'Spain',
     canonicalName: 'LaLiga',
-    status: 'OBSERVATION_ONLY',
+    status: 'MODEL_ENABLED',
     cohortId: 'KSS-V1-C03-ESP',
-    modelVersion: null,
+    modelVersion: POISSON_MODEL_VERSION,
     historicalDataset: 'la-liga',
     heartbeatLabel: '🇪🇸 LaLiga',
   },
   {
+    code: 'SERIE_A',
     leagueId: 135,
     country: 'Italy',
     canonicalName: 'Serie A',
@@ -75,6 +91,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇮🇹 Serie A',
   },
   {
+    code: 'BUNDESLIGA',
     leagueId: 78,
     country: 'Germany',
     canonicalName: 'Bundesliga',
@@ -85,6 +102,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇩🇪 Bundesliga',
   },
   {
+    code: 'LIGUE_1',
     leagueId: 61,
     country: 'France',
     canonicalName: 'Ligue 1',
@@ -95,6 +113,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇫🇷 Ligue 1',
   },
   {
+    code: 'EREDIVISIE',
     leagueId: 88,
     country: 'Netherlands',
     canonicalName: 'Eredivisie',
@@ -105,6 +124,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇳🇱 Eredivisie',
   },
   {
+    code: 'PRIMEIRA_LIGA',
     leagueId: 94,
     country: 'Portugal',
     canonicalName: 'Primeira Liga',
@@ -115,6 +135,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇵🇹 Primeira Liga',
   },
   {
+    code: 'BELGIAN_PRO_LEAGUE',
     leagueId: 144,
     country: 'Belgium',
     canonicalName: 'Belgian Pro League',
@@ -125,6 +146,7 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     heartbeatLabel: '🇧🇪 Pro League',
   },
   {
+    code: 'MLS',
     leagueId: 253,
     country: 'USA',
     canonicalName: 'Major League Soccer',

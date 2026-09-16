@@ -13,7 +13,7 @@ import type { PaperBetStatus, PaperBet } from '../../paper-betting/domain/concep
 import type { PaperBetStore } from '../../paper-betting/ports/paperBetStore';
 import { NOTIFICATION_PORT } from '../../notifications/ports/notificationPort';
 import type { NotificationPort } from '../../notifications/ports/notificationPort';
-import { formatQuantPaperMessage } from '../../notifications/domain/quantMessage';
+import { formatRecommendationTelegramMessage } from '../../notifications/domain/recommendationMessage';
 import { loadLocalHistoricalMatches } from '../../poisson/adapters/localCsvHistoricalMatches';
 import { historicalMatchesForLeague } from '../../poisson/adapters/historicalLeagueRegistry';
 import type { HistoricalMatch } from '../../poisson/domain/concepts';
@@ -21,6 +21,7 @@ import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
 import { flushQuantBets } from './flushQuantBets';
+import { recommendationFromQuantBet } from './quantRecommendation';
 import { LunaShadowService } from '../../luna/application/lunaShadowService';
 import type { Fixture } from '../../scanning/domain/concepts';
 
@@ -107,22 +108,15 @@ export class QuantScanService {
 }
 
 function formatQuantPaperMessageFor(bet: PaperBet): string {
-  return formatQuantPaperMessage({
-    homeTeam: bet.homeTeam,
-    awayTeam: bet.awayTeam,
-    selection: bet.selection as QuantSelection,
-    bookmaker: bet.bookmaker,
-    offeredOdds: bet.placedOdds,
-    modelProbability: bet.modelProbability,
-    fairMarketProbability: bet.fairMarketProbability,
-    edge: bet.edge,
-    expectedValue: bet.expectedValue,
-    minimumAcceptableOdds: bet.minimumAcceptableOdds,
-    stake: bet.stake,
-  });
+  const message = formatRecommendationTelegramMessage(
+    recommendationFromQuantBet(bet, bet.createdAt),
+    `${bet.homeTeam} vs ${bet.awayTeam}`,
+  );
+  if (message === null) {
+    throw new Error(`PaperBet ${bet.id} no produjo una recomendación BET accionable`);
+  }
+  return message;
 }
-
-type QuantSelection = Parameters<typeof formatQuantPaperMessage>[0]['selection'];
 
 /** Bankroll PAPER actual a partir de las bets persistidas (stake OPEN + pnl resuelto). */
 export function paperBankrollState(store: PaperBetStore): {

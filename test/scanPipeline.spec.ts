@@ -90,8 +90,8 @@ describe('scan pipeline con adapters fake', () => {
     });
 
     expect(report.fixturesFetched).toBe(2);
-    expect(report.fixturesEligible).toBe(1);
-    expect(report.excludedByProtocol).toBe(1);
+    expect(report.fixturesEligible).toBe(2);
+    expect(report.excludedByProtocol).toBe(0);
     expect(report.fixturesMatched).toBe(1);
     expect(report.temporalEligible).toBe(1);
     expect(report.candidatesNormalized).toBe(1);

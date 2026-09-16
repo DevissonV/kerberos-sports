@@ -7,6 +7,7 @@
 import type { OverUnderSelection } from '../../scanning/domain/concepts';
 
 export interface PaperPickMessageInput {
+  league?: string;
   homeTeam: string;
   awayTeam: string;
   selection: OverUnderSelection;
@@ -44,7 +45,7 @@ export function formatQuantPaperMessage(pick: PaperPickMessageInput): string {
     '⚽ KERBEROS SPORTS — PAPER',
     '',
     `🏟 ${pick.homeTeam} vs ${pick.awayTeam}`,
-    '🏆 Premier League',
+    `🏆 ${pick.league ?? 'Premier League'}`,
     '',
     'Mercado:',
     'O/U 2.5',
