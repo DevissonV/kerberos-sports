@@ -1,0 +1,139 @@
+{
+  "version": "v1-spike",
+  "runtimeEligible": false,
+  "reviewedAt": "2026-09-15T00:00:00Z",
+  "records": [
+    {
+      "canonicalPlayerId": "sackmann:WTA:220446",
+      "source": "SACKMANN",
+      "sourcePlayerId": "220446",
+      "canonicalName": "Jazmin Ortenzi",
+      "sourceName": "Jazmin Ortenzi",
+      "tour": "WTA",
+      "validFrom": "2020-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:220446",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "337811",
+      "canonicalName": "Jazmin Ortenzi",
+      "sourceName": "Ortenzi, Jazmin",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:203564",
+      "source": "SACKMANN",
+      "sourcePlayerId": "203564",
+      "canonicalName": "Chloe Paquet",
+      "sourceName": "Chloe Paquet",
+      "tour": "WTA",
+      "validFrom": "2010-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:203564",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "46591",
+      "canonicalName": "Chloe Paquet",
+      "sourceName": "Paquet, Chloe",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:212303",
+      "source": "SACKMANN",
+      "sourcePlayerId": "212303",
+      "canonicalName": "Justina Mikulskyte",
+      "sourceName": "Justina Mikulskyte",
+      "tour": "WTA",
+      "validFrom": "2010-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:212303",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "137932",
+      "canonicalName": "Justina Mikulskyte",
+      "sourceName": "Mikulskyte, Justina",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:211651",
+      "source": "SACKMANN",
+      "sourcePlayerId": "211651",
+      "canonicalName": "Paula Badosa",
+      "sourceName": "Paula Badosa",
+      "tour": "WTA",
+      "validFrom": "2010-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:211651",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "133662",
+      "canonicalName": "Paula Badosa",
+      "sourceName": "Badosa, Paula",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:201585",
+      "source": "SACKMANN",
+      "sourcePlayerId": "201585",
+      "canonicalName": "Sloane Stephens",
+      "sourceName": "Sloane Stephens",
+      "tour": "WTA",
+      "validFrom": "2010-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:201585",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "23158",
+      "canonicalName": "Sloane Stephens",
+      "sourceName": "Stephens, Sloane",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:222145",
+      "source": "SACKMANN",
+      "sourcePlayerId": "222145",
+      "canonicalName": "Janice Tjen",
+      "sourceName": "Janice Tjen",
+      "tour": "WTA",
+      "validFrom": "2020-01-01T00:00:00Z",
+      "validTo": null
+    },
+    {
+      "canonicalPlayerId": "sackmann:WTA:222145",
+      "source": "ODDSPAPI",
+      "sourcePlayerId": "460837",
+      "canonicalName": "Janice Tjen",
+      "sourceName": "Tjen, Janice",
+      "tour": "WTA",
+      "validFrom": "2026-09-15T00:00:00Z",
+      "validTo": null
+    }
+  ],
+  "unresolved": [
+    {
+      "source": "LIVE_TENNIS",
+      "tour": "ATP",
+      "reason": "no authenticated FREE key available for the required real sample"
+    },
+    {
+      "source": "LIVE_TENNIS",
+      "tour": "WTA",
+      "reason": "no authenticated FREE key available for the required real sample"
+    }
+  ]
+}
