@@ -56,8 +56,16 @@ Poisson smoke (misma fecha de snapshot):
 
 ## Verificación local
 
-`npm test -- --runInBand`: **47 suites, 259 tests PASS**.  
-Pendiente ejecutar `npm run validate` después de preparar el commit/release.
+`npm run validate`: **47 suites, 281 tests PASS** (format, lint, test y build), ejecutado en
+`main` y de nuevo después del fast-forward de `release`.
+
+## Release y cloud
+
+- Commit funcional: `2c3b921 feat(modelado): ampliar fútbol con Portugal y Bélgica`.
+- `main` y `release` apuntan al mismo SHA (`2c3b921`); ambos pushes terminaron correctamente.
+- Railway production deployment `7e11d512-7a3c-4861-91ac-b5b5bae71afc`: **SUCCESS** y cron
+  `*/30` activo. El siguiente tick programado es `2026-09-16T00:30:00Z`; no se forzó una corrida
+  adicional para no duplicar una ejecución operacional PAPER.
 
 ## Siguiente paso seguro
 
