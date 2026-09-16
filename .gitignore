@@ -22,3 +22,6 @@ resources/temp/*
 data/
 !resources/temp/KSS-QUANT-VERTICAL-01-handoff.md
 !resources/temp/KSS-LUNA-SHADOW-01-handoff.md
+!resources/temp/KSS-GLOBAL-INTEGRATION-DEPLOY-01-handoff.md
+!resources/temp/KSS-*-handoff.md
+!resources/temp/KSS-*-VERIFY-*.md
