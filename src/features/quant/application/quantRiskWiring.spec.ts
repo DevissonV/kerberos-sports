@@ -57,10 +57,11 @@ describe('cableado QUANT → recomendación → riesgo → Telegram', () => {
       bet(),
       NOW,
       riskService({ betsToday: 0, dailyExposureCop: 0, dailyLossCop: 0, openBets: 0 }),
+      500_000,
     );
-    expect(message).toContain('Stake sugerido: COP 10000');
+    expect(message).toContain('🎯 APUESTA INDICADA:\n10.000 COP');
     expect(message).toContain('EV: +20.0%');
-    expect(message).toContain('EJECUCIÓN: MANUAL');
+    expect(message).toContain('👤 EJECUCIÓN MANUAL');
   });
 
   it.each([
@@ -75,6 +76,7 @@ describe('cableado QUANT → recomendación → riesgo → Telegram', () => {
           { betsToday: 0, dailyExposureCop: 0, dailyLossCop: 0, openBets: 0 },
           { ...DEFAULT_PRODUCTION_RISK_CONFIG, ...flags },
         ),
+        500_000,
       ),
     ).toBeNull();
   });
@@ -85,6 +87,7 @@ describe('cableado QUANT → recomendación → riesgo → Telegram', () => {
         bet(),
         NOW,
         riskService({ betsToday: 1, dailyExposureCop: 25_000, dailyLossCop: 0, openBets: 1 }),
+        500_000,
       ),
     ).toBeNull();
   });

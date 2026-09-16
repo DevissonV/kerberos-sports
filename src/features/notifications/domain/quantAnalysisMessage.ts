@@ -1,60 +1,61 @@
 import type { QuantFixtureAnalysis } from '../../quant/application/quantPipeline';
 import { findLeagueDefinition } from '../../scanning/domain/leagueUniverse';
+import { marketLanguage } from './marketLanguage';
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function signed(value: number, suffix: string): string {
-  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}${suffix}`;
-}
-
-/** Presenta una decisión QUANT, incluida la evidencia `NO_BET`, sin conocer Telegram. */
+/** Presenta una decisión sin convertir un análisis en una instrucción de ejecución. */
 export function formatQuantAnalysisMessage(analysis: QuantFixtureAnalysis): string | null {
   if (analysis.side === undefined) return null;
   const league = findLeagueDefinition(analysis.fixture)?.heartbeatLabel ?? analysis.fixture.league;
-  const reason =
-    analysis.decision === 'BET' ? 'criterios QUANT satisfechos' : reasonLabel(analysis.reason);
+  const market = marketLanguage(analysis.side.selection);
+  if (analysis.decision === 'BET') {
+    return [
+      '👀 PREANÁLISIS — NO APOSTAR TODAVÍA',
+      '',
+      league,
+      `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+      '',
+      market.title,
+      market.explanation,
+      '',
+      `Probabilidad Kerberos: ${percent(analysis.side.modelProbability)}`,
+      'Stake: NO DISPONIBLE',
+      'Próxima revisión: T-6',
+    ].join('\n');
+  }
   return [
-    '⚽ KERBEROS SPORTS',
+    '⚪ KERBEROS SPORTS — NO APOSTAR',
     '',
-    league,
     `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
     '',
-    '📊 Análisis O/U 2.5',
+    'Mercado analizado:',
+    market.title,
+    `= ${market.explanation.charAt(0).toLowerCase()}${market.explanation.slice(1)}`,
     '',
-    'Kerberos:',
-    `Over: ${percent(analysis.model.pOver)}`,
-    `Under: ${percent(analysis.model.pUnder)}`,
+    '❌ NO APOSTAR',
     '',
-    `Mercado (${analysis.pair.bookmaker}):`,
-    `Over @ ${analysis.pair.over.decimalOdds.toFixed(2)}`,
-    `Under @ ${analysis.pair.under.decimalOdds.toFixed(2)}`,
+    `Motivo: ${reasonLabel(analysis.reason)}`,
     '',
-    'Probabilidad justa mercado:',
-    `Over: ${percent(1 / analysis.pair.over.decimalOdds / (1 / analysis.pair.over.decimalOdds + 1 / analysis.pair.under.decimalOdds))}`,
-    `Under: ${percent(1 / analysis.pair.under.decimalOdds / (1 / analysis.pair.over.decimalOdds + 1 / analysis.pair.under.decimalOdds))}`,
+    `Cuota actual: ${analysis.side.offeredOdds.toFixed(2)}`,
+    `Cuota mínima: ${analysis.side.minimumAcceptableOdds.toFixed(2)}`,
     '',
-    `Edge (${analysis.side.selection === 'OVER_2_5' ? 'Over' : 'Under'}): ${signed(analysis.side.edge, ' pp')}`,
-    `EV: ${signed(analysis.side.expectedValue, '%')}`,
-    '',
-    `Resultado: ${analysis.decision === 'BET' ? '✅ BET' : '⚪ NO BET'}`,
-    `Motivo: ${reason}`,
-    '',
-    '🧪 PAPER ONLY',
+    '💰 Apostar: 0 COP',
   ].join('\n');
 }
 
 function reasonLabel(reason: QuantFixtureAnalysis['reason']): string {
   switch (reason) {
     case 'EDGE':
-      return 'edge insuficiente';
+      return 'ventaja insuficiente';
     case 'EV':
-      return 'EV insuficiente';
+      return 'valor esperado insuficiente';
     case 'ODDS_RANGE':
-      return 'cuota fuera de rango';
+      return 'cuota demasiado baja';
     case 'RISK':
-      return 'límite PAPER de exposición';
+      return 'límite de riesgo alcanzado';
     default:
       return 'datos insuficientes';
   }

@@ -61,10 +61,17 @@ const analysis: QuantFixtureAnalysis = {
   reason: 'EDGE',
 };
 
-it('muestra análisis NO_BET con modelo, mercado y motivo', () => {
+it('muestra NO_BET breve, sin stake ejecutable', () => {
   const message = formatQuantAnalysisMessage(analysis);
-  expect(message).toContain('🇪🇸 LaLiga');
   expect(message).toContain('Barcelona vs Sevilla');
-  expect(message).toContain('⚪ NO BET');
-  expect(message).toContain('edge insuficiente');
+  expect(message).toContain('⚪ KERBEROS SPORTS — NO APOSTAR');
+  expect(message).toContain('MÁS DE 2.5 GOLES');
+  expect(message).toContain('💰 Apostar: 0 COP');
+  expect(message).not.toContain('Stake sugerido');
+});
+
+it('muestra preview como no ejecutable', () => {
+  const message = formatQuantAnalysisMessage({ ...analysis, decision: 'BET' });
+  expect(message).toContain('👀 PREANÁLISIS — NO APOSTAR TODAVÍA');
+  expect(message).toContain('Stake: NO DISPONIBLE');
 });

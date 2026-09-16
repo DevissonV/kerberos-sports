@@ -24,6 +24,8 @@ import { formatQuantAnalysisMessage } from '../../notifications/domain/quantAnal
 import { LunaShadowService } from '../../luna/application/lunaShadowService';
 import type { Fixture } from '../../scanning/domain/concepts';
 import { ProductionRiskService } from '../../production-risk/application/productionRiskService';
+import { ManualLedgerService } from '../../manual-ledger/application/manualLedgerService';
+import { formatQuantPaperMessageFor } from './quantRiskMessage';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -43,6 +45,7 @@ export class QuantScanService {
     @Inject(NOTIFICATION_PORT) private readonly notifications: NotificationPort,
     private readonly lunaShadow: LunaShadowService,
     private readonly productionRisk: ProductionRiskService,
+    private readonly manualLedger: ManualLedgerService,
     /**
      * Histórico causal para Poisson (inyectable para tests deterministas); sin
      * proveedor Nest se usa el histórico local versionado por defecto.
@@ -101,7 +104,13 @@ export class QuantScanService {
     });
     let analysisMessagesSent = 0;
     for (const analysis of result.analyses) {
-      const message = formatQuantAnalysisMessage(analysis);
+      const prepared = result.prepared.find(
+        (entry) => entry.bet.fixtureId === Number(analysis.fixture.id),
+      );
+      const message =
+        analysis.decision === 'BET' && prepared !== undefined
+          ? this.actionableMessage(prepared.bet, now)
+          : formatQuantAnalysisMessage(analysis);
       if (message === null) continue;
       try {
         await this.notifications.send(message);
@@ -122,6 +131,20 @@ export class QuantScanService {
       analysisMessagesSent,
       luna,
     };
+  }
+
+  /** Un bankroll real no inicializado impide una instrucción ejecutable (fail-closed). */
+  private actionableMessage(bet: PaperBet, now: Date): string | null {
+    try {
+      return formatQuantPaperMessageFor(
+        bet,
+        now,
+        this.productionRisk,
+        this.manualLedger.realBankrollCop(),
+      );
+    } catch {
+      return null;
+    }
   }
 }
 

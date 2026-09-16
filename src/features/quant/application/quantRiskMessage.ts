@@ -8,14 +8,16 @@ export function formatQuantPaperMessageFor(
   bet: PaperBet,
   now: Date,
   productionRisk: ProductionRiskService,
+  currentRealBankrollCop: number,
 ): string | null {
   const recommendation = productionRisk.applyToRecommendation(
     recommendationFromQuantBet(bet, now),
     now.toISOString().slice(0, 10),
   );
-  return formatRecommendationTelegramMessage(
-    recommendation,
-    `${bet.homeTeam} vs ${bet.awayTeam}`,
-    bet.expectedValue,
-  );
+  if (recommendation.riskDecision === null) return null;
+  return formatRecommendationTelegramMessage(recommendation, `${bet.homeTeam} vs ${bet.awayTeam}`, {
+    expectedValue: bet.expectedValue,
+    currentRealBankrollCop,
+    riskDecision: recommendation.riskDecision,
+  });
 }

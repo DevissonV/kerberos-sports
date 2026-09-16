@@ -23,6 +23,7 @@ import { SqliteRefinementStore } from './adapters/sqliteRefinementStore';
 import { REFINEMENT_STORE } from './ports/refinementStore';
 import { SettlementModule } from '../settlement/settlement.module';
 import { ProductionRiskModule } from '../production-risk/production-risk.module';
+import { ManualLedgerModule } from '../manual-ledger/manual-ledger.module';
 
 /**
  * Módulo standalone de batch (cli/scan.ts): declara su propio ConfigModule porque no
@@ -42,6 +43,7 @@ import { ProductionRiskModule } from '../production-risk/production-risk.module'
     LunaModule,
     SettlementModule,
     ProductionRiskModule,
+    ManualLedgerModule,
   ],
   providers: [
     QuantScanService,

@@ -25,15 +25,14 @@ describe('formatRefinementHeartbeat', () => {
       },
     });
     expect(message).toContain('⚽ KERBEROS SPORTS');
-    expect(message).toContain('🇬🇧 Premier League: 2');
-    expect(message).toContain('🇨🇴 Liga BetPlay: 4');
-    expect(message).toContain('🔴 Estado: Error');
+    expect(message).toContain('Partidos detectados: 6');
+    expect(message).toContain('⚠️ Revisión con incidencia');
     expect(message).toContain('Detalle: BUDGET_GUARD');
     expect(message).not.toContain('snapshot');
     expect(message).not.toContain('full scan');
   });
 
-  it('agrupa por liga, no muestra IDs técnicos y separa modelo/observación', () => {
+  it('mantiene únicamente los contadores operativos', () => {
     const base = {
       now: new Date('2026-09-15T12:00:00Z'),
       openBets: 1,
@@ -57,18 +56,12 @@ describe('formatRefinementHeartbeat', () => {
       },
     };
     const message = formatRefinementHeartbeat(base);
-    expect(message).toContain('🇬🇧 Premier League: 0');
-    expect(message).toContain('🇪🇸 LaLiga: 3');
-    expect(message).toContain('🇮🇹 Serie A: 2');
-    expect(message).toContain('👀 En observación:');
-    expect(message).toContain('5 partidos');
-    expect(message).toContain('🎯 Oportunidades QUANT: 1');
-    expect(message).toContain('🧪 Paper Bets nuevas: 1');
-    expect(message).toContain('🌙 Luna utilizada: Sí');
-    expect(message).not.toMatch(/leagueId|39|140|135/);
+    expect(message).toContain('Partidos detectados: 5');
+    expect(message).toContain('NO_BET: 0');
+    expect(message).not.toContain('Oportunidades QUANT');
   });
 
-  it('obtiene Portugal y Bélgica del registry y conserva su estado de observación', () => {
+  it('cuenta partidos aunque pertenezcan a ligas en observación', () => {
     const message = formatRefinementHeartbeat({
       now: new Date('2026-09-15T12:00:00Z'),
       openBets: 0,
@@ -90,8 +83,6 @@ describe('formatRefinementHeartbeat', () => {
         errors: 0,
       },
     });
-    expect(message).toContain('🇵🇹 Primeira Liga: 3');
-    expect(message).toContain('🇧🇪 Pro League: 4');
-    expect(message).toContain('7 partidos');
+    expect(message).toContain('Partidos detectados: 7');
   });
 });
