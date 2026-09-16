@@ -124,6 +124,16 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     historicalDataset: 'belgian-pro-league',
     heartbeatLabel: '🇧🇪 Pro League',
   },
+  {
+    leagueId: 253,
+    country: 'USA',
+    canonicalName: 'Major League Soccer',
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C10-USA',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'mls',
+    heartbeatLabel: '🇺🇸 MLS',
+  },
 ];
 
 type LeagueLookupFixture = Pick<Fixture, 'leagueId' | 'country'>;

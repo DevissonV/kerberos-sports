@@ -22,6 +22,7 @@ const DATASET_FILES: Readonly<Record<string, readonly string[]>> = {
   eredivisie: ['2425-N1.csv', '2526-N1.csv', '2627-N1.csv'],
   'primeira-liga': ['2425-P1.csv', '2526-P1.csv', '2627-P1.csv'],
   'belgian-pro-league': ['2425-B1.csv', '2526-B1.csv', '2627-B1.csv'],
+  mls: ['mls_matches_2024.csv', 'mls_matches_2025.csv', 'mls_matches_2026.csv'],
 };
 
 /** Carga y combina los CSVs versionados de Premier League en un único set de partidos. */

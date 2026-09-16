@@ -23,12 +23,15 @@ function fixture(overrides: Partial<Fixture> = {}): Fixture {
 }
 
 describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
-  it('Premier League conserva KSS-V1-C01 como única liga habilitada', () => {
+  it('Premier League y MLS son ligas habilitadas con modelos', () => {
     const premierLeague = LEAGUE_UNIVERSE.find((league) => league.leagueId === 39);
     expect(premierLeague?.status).toBe('MODEL_ENABLED');
     expect(premierLeague?.cohortId).toBe('KSS-V1-C01');
+    const mls = LEAGUE_UNIVERSE.find((league) => league.leagueId === 253);
+    expect(mls?.status).toBe('MODEL_ENABLED');
+    expect(mls?.cohortId).toBe('KSS-V1-C10-USA');
     const modelEnabled = LEAGUE_UNIVERSE.filter((league) => league.status === 'MODEL_ENABLED');
-    expect(modelEnabled).toHaveLength(1);
+    expect(modelEnabled).toHaveLength(2);
   });
 
   it('el resto del universo V1 es OBSERVATION_ONLY', () => {
@@ -106,6 +109,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Eredivisie',
       'Primeira Liga',
       'Belgian Pro League',
+      'Major League Soccer',
     ]);
     expect(summary[0]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
     expect(summary[1]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });
