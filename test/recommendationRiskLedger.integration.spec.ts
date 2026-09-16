@@ -1,5 +1,6 @@
 import { SqliteManualLedgerStore } from '../src/features/manual-ledger/adapters/sqliteManualLedgerStore';
 import { ManualLedgerService } from '../src/features/manual-ledger/application/manualLedgerService';
+import { SqliteProductionRiskStateStore } from '../src/features/production-risk/adapters/sqliteProductionRiskStateStore';
 import {
   applyProductionRisk,
   DEFAULT_PRODUCTION_RISK_CONFIG,
@@ -44,9 +45,14 @@ function riskGate(
   return applyProductionRisk(recommendation, { config, state: CLEAR_STATE });
 }
 
-function ledger(): { store: SqliteManualLedgerStore; service: ManualLedgerService } {
+function ledger(): {
+  store: SqliteManualLedgerStore;
+  riskStore: SqliteProductionRiskStateStore;
+  service: ManualLedgerService;
+} {
   const store = new SqliteManualLedgerStore(':memory:');
-  return { store, service: new ManualLedgerService(store) };
+  const riskStore = new SqliteProductionRiskStateStore(':memory:');
+  return { store, riskStore, service: new ManualLedgerService(store, riskStore) };
 }
 
 function execute(service: ManualLedgerService, executionId = 'exec-1') {
@@ -108,7 +114,7 @@ describe('integración recomendación, riesgo y ledger manual', () => {
   });
 
   it('F: registra la ejecución manual en el ledger', () => {
-    const { store, service } = ledger();
+    const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
       expect(execute(service)).toMatchObject({
@@ -117,11 +123,12 @@ describe('integración recomendación, riesgo y ledger manual', () => {
       });
     } finally {
       store.close();
+      riskStore.close();
     }
   });
 
   it('G: liquida una victoria una sola vez y actualiza el bankroll real', () => {
-    const { store, service } = ledger();
+    const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
       execute(service);
@@ -134,11 +141,12 @@ describe('integración recomendación, riesgo y ledger manual', () => {
       expect(service.realBankrollCop()).toBe(110_000);
     } finally {
       store.close();
+      riskStore.close();
     }
   });
 
   it('H: liquida una pérdida una sola vez y actualiza el bankroll real', () => {
-    const { store, service } = ledger();
+    const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
       execute(service);
@@ -151,17 +159,19 @@ describe('integración recomendación, riesgo y ledger manual', () => {
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
       store.close();
+      riskStore.close();
     }
   });
 
   it('I: una RECOMMENDED no ejecutada no altera el bankroll real', () => {
-    const { store, service } = ledger();
+    const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
       expect(service.recommend('rec-1', NOW).status).toBe('RECOMMENDED');
       expect(service.realBankrollCop()).toBe(100_000);
     } finally {
       store.close();
+      riskStore.close();
     }
   });
 

@@ -22,6 +22,7 @@ import { RefinementService } from './application/refinementService';
 import { SqliteRefinementStore } from './adapters/sqliteRefinementStore';
 import { REFINEMENT_STORE } from './ports/refinementStore';
 import { SettlementModule } from '../settlement/settlement.module';
+import { ProductionRiskModule } from '../production-risk/production-risk.module';
 
 /**
  * Módulo standalone de batch (cli/scan.ts): declara su propio ConfigModule porque no
@@ -40,6 +41,7 @@ import { SettlementModule } from '../settlement/settlement.module';
     NotificationsModule,
     LunaModule,
     SettlementModule,
+    ProductionRiskModule,
   ],
   providers: [
     QuantScanService,

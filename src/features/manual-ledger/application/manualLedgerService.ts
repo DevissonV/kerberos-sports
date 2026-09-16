@@ -1,8 +1,12 @@
 import type { ManualBetResult, ManualLedgerEntry } from '../domain/manualLedger';
 import type { ManualLedgerStore } from '../ports/manualLedgerStore';
+import type { ProductionRiskStateStore } from '../../production-risk/ports/productionRiskStateStore';
 
 export class ManualLedgerService {
-  constructor(private readonly store: ManualLedgerStore) {}
+  constructor(
+    private readonly store: ManualLedgerStore,
+    private readonly riskStateStore: ProductionRiskStateStore,
+  ) {}
 
   initializeRealBankroll(initialBankrollCop: number): number {
     return this.store.initializeRealBankroll(initialBankrollCop);
@@ -23,7 +27,14 @@ export class ManualLedgerService {
     now: Date;
   }): ManualLedgerEntry {
     const { now, ...execution } = input;
-    return this.store.execute({ ...execution, createdAt: now });
+    const entry = this.store.execute({ ...execution, createdAt: now });
+    this.riskStateStore.recordManualBet({
+      id: input.executionId,
+      day: utcDay(input.executedAt),
+      stakeCop: input.executedStakeCop,
+      operatorApprovalId: input.executionId,
+    });
+    return entry;
   }
   settle(input: {
     executionId: string;
@@ -32,6 +43,13 @@ export class ManualLedgerService {
     now: Date;
   }): ManualLedgerEntry {
     const { now, ...settlement } = input;
-    return this.store.settle({ ...settlement, settledAt: now });
+    const entry = this.store.settle({ ...settlement, settledAt: now });
+    if (entry.netPnlCop === undefined) throw new Error('Settlement manual sin PnL');
+    this.riskStateStore.settleManualBet(input.executionId, entry.netPnlCop);
+    return entry;
   }
+}
+
+function utcDay(value: Date): string {
+  return value.toISOString().slice(0, 10);
 }

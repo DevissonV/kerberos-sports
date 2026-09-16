@@ -15,7 +15,7 @@ export interface QuantFlushDeps {
   store: PaperBetStore;
   send: (message: string) => Promise<void>;
   /** Formatea el mensaje de Telegram para una bet concreta. */
-  messageFor: (bet: PaperBet) => string;
+  messageFor: (bet: PaperBet) => string | null;
   /** ID durable de la bet (generado aquí, una sola vez por bet nueva). */
   newId: () => string;
   /** Callback para avisar fallo de envío sin romper el flush. */
@@ -48,7 +48,9 @@ export async function flushQuantBets(deps: QuantFlushDeps): Promise<QuantFlushRe
       continue;
     }
     try {
-      await deps.send(deps.messageFor(bet));
+      const message = deps.messageFor(bet);
+      if (message === null) continue;
+      await deps.send(message);
       telegramSent += 1;
     } catch (error) {
       deps.onSendError?.(bet.id, error);

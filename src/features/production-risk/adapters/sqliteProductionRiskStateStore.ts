@@ -59,7 +59,7 @@ export class SqliteProductionRiskStateStore implements ProductionRiskStateStore 
     }
     this.db
       .prepare(
-        `INSERT INTO production_risk_manual_bets
+        `INSERT OR IGNORE INTO production_risk_manual_bets
          (id, day, stakeCop, operatorApprovalId, status, pnlCop)
          VALUES (?, ?, ?, ?, 'OPEN', NULL)`,
       )

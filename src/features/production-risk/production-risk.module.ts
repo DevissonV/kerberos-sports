@@ -13,7 +13,8 @@ import { PRODUCTION_RISK_STATE_STORE } from './ports/productionRiskStateStore';
       inject: [ConfigService],
       useFactory: (configService: ConfigService<AppConfig>) =>
         new SqliteProductionRiskStateStore(
-          configService.get('paperBetsDbPath', { infer: true }) ?? 'data/kerberos-sports.db',
+          configService.get('manualLedgerDbPath', { infer: true }) ??
+            'data/kerberos-sports-ledger.db',
         ),
     },
     {

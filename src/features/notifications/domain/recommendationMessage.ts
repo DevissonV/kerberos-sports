@@ -19,6 +19,7 @@ function signedPercent(value: number): string {
 export function formatRecommendationTelegramMessage(
   recommendation: Recommendation,
   matchName: string,
+  expectedValue?: number,
 ): string | null {
   if (
     recommendation.status !== 'BET' ||
@@ -47,6 +48,7 @@ export function formatRecommendationTelegramMessage(
     `Cuota mínima: ${recommendation.minimumAcceptableOdds.toFixed(2)}`,
     `Probabilidad Kerberos: ${percent(recommendation.modelProbability)}`,
     `Edge: ${signedPercent(recommendation.edge)}`,
+    ...(expectedValue === undefined ? [] : [`EV: ${signedPercent(expectedValue)}`]),
     `Confianza: ${percent(recommendation.confidence)}`,
     `Stake sugerido: COP ${recommendation.suggestedStakeCop.toFixed(0)}`,
     `Vigencia: ${recommendation.expiresAt.toISOString()}`,

@@ -4,12 +4,18 @@ import { join } from 'node:path';
 import { ManualLedgerService } from '../application/manualLedgerService';
 import { AlreadyManualSettledError } from '../ports/manualLedgerStore';
 import { SqliteManualLedgerStore } from './sqliteManualLedgerStore';
+import { SqliteProductionRiskStateStore } from '../../production-risk/adapters/sqliteProductionRiskStateStore';
 
 const NOW = new Date('2026-09-16T12:00:00.000Z');
 
-function createService(): { store: SqliteManualLedgerStore; service: ManualLedgerService } {
+function createService(): {
+  store: SqliteManualLedgerStore;
+  riskStore: SqliteProductionRiskStateStore;
+  service: ManualLedgerService;
+} {
   const store = new SqliteManualLedgerStore(':memory:');
-  return { store, service: new ManualLedgerService(store) };
+  const riskStore = new SqliteProductionRiskStateStore(':memory:');
+  return { store, riskStore, service: new ManualLedgerService(store, riskStore) };
 }
 
 function execute(
@@ -61,6 +67,31 @@ describe('SqliteManualLedgerStore', () => {
       expect(repeated).toEqual(first);
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
+      store.close();
+    }
+  });
+
+  it('sincroniza EXECUTED_MANUALLY y SETTLED con el estado de riesgo', () => {
+    const { store, riskStore, service } = createService();
+    try {
+      service.initializeRealBankroll(100_000);
+      execute(service);
+      execute(service);
+      expect(riskStore.getDailyState('2026-09-16')).toEqual({
+        betsToday: 1,
+        dailyExposureCop: 10_000,
+        dailyLossCop: 0,
+        openBets: 1,
+      });
+      service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW });
+      expect(riskStore.getDailyState('2026-09-16')).toEqual({
+        betsToday: 1,
+        dailyExposureCop: 10_000,
+        dailyLossCop: 10_000,
+        openBets: 0,
+      });
+    } finally {
+      riskStore.close();
       store.close();
     }
   });
@@ -144,7 +175,8 @@ describe('SqliteManualLedgerStore', () => {
     const directory = mkdtempSync(join(tmpdir(), 'kss-manual-ledger-'));
     const path = join(directory, 'nested', 'ledger.sqlite');
     const first = new SqliteManualLedgerStore(path);
-    const service = new ManualLedgerService(first);
+    const firstRisk = new SqliteProductionRiskStateStore(':memory:');
+    const service = new ManualLedgerService(first, firstRisk);
     service.initializeRealBankroll(100_000);
     execute(service);
     first.close();
@@ -155,6 +187,7 @@ describe('SqliteManualLedgerStore', () => {
       expect(reopened.realBankrollCop()).toBe(90_000);
     } finally {
       reopened.close();
+      firstRisk.close();
       rmSync(directory, { recursive: true, force: true });
     }
   });

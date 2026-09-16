@@ -13,7 +13,6 @@ import type { PaperBetStatus, PaperBet } from '../../paper-betting/domain/concep
 import type { PaperBetStore } from '../../paper-betting/ports/paperBetStore';
 import { NOTIFICATION_PORT } from '../../notifications/ports/notificationPort';
 import type { NotificationPort } from '../../notifications/ports/notificationPort';
-import { formatRecommendationTelegramMessage } from '../../notifications/domain/recommendationMessage';
 import { loadLocalHistoricalMatches } from '../../poisson/adapters/localCsvHistoricalMatches';
 import { historicalMatchesForLeague } from '../../poisson/adapters/historicalLeagueRegistry';
 import type { HistoricalMatch } from '../../poisson/domain/concepts';
@@ -21,9 +20,10 @@ import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
 import { flushQuantBets } from './flushQuantBets';
-import { recommendationFromQuantBet } from './quantRecommendation';
+import { formatQuantPaperMessageFor } from './quantRiskMessage';
 import { LunaShadowService } from '../../luna/application/lunaShadowService';
 import type { Fixture } from '../../scanning/domain/concepts';
+import { ProductionRiskService } from '../../production-risk/application/productionRiskService';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -41,6 +41,7 @@ export class QuantScanService {
     @Inject(PAPER_BET_STORE) private readonly paperBetStore: PaperBetStore,
     @Inject(NOTIFICATION_PORT) private readonly notifications: NotificationPort,
     private readonly lunaShadow: LunaShadowService,
+    private readonly productionRisk: ProductionRiskService,
     /**
      * Histórico causal para Poisson (inyectable para tests deterministas); sin
      * proveedor Nest se usa el histórico local versionado por defecto.
@@ -83,7 +84,7 @@ export class QuantScanService {
       prepared: result.prepared,
       store: this.paperBetStore,
       send: (message) => this.notifications.send(message),
-      messageFor: formatQuantPaperMessageFor,
+      messageFor: (bet) => formatQuantPaperMessageFor(bet, now, this.productionRisk),
       newId: () => randomUUID(),
       onSendError: (betId, cause) =>
         logger.warn('Telegram fallo para PaperBet nueva', {
@@ -105,17 +106,6 @@ export class QuantScanService {
       luna,
     };
   }
-}
-
-function formatQuantPaperMessageFor(bet: PaperBet): string {
-  const message = formatRecommendationTelegramMessage(
-    recommendationFromQuantBet(bet, bet.createdAt),
-    `${bet.homeTeam} vs ${bet.awayTeam}`,
-  );
-  if (message === null) {
-    throw new Error(`PaperBet ${bet.id} no produjo una recomendación BET accionable`);
-  }
-  return message;
 }
 
 /** Bankroll PAPER actual a partir de las bets persistidas (stake OPEN + pnl resuelto). */

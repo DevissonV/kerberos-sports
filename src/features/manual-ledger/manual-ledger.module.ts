@@ -5,8 +5,12 @@ import { SqliteManualLedgerStore } from './adapters/sqliteManualLedgerStore';
 import { ManualLedgerService } from './application/manualLedgerService';
 import { MANUAL_LEDGER_STORE } from './ports/manualLedgerStore';
 import type { ManualLedgerStore } from './ports/manualLedgerStore';
+import { ProductionRiskModule } from '../production-risk/production-risk.module';
+import { PRODUCTION_RISK_STATE_STORE } from '../production-risk/ports/productionRiskStateStore';
+import type { ProductionRiskStateStore } from '../production-risk/ports/productionRiskStateStore';
 
 @Module({
+  imports: [ProductionRiskModule],
   providers: [
     {
       provide: MANUAL_LEDGER_STORE,
@@ -18,8 +22,9 @@ import type { ManualLedgerStore } from './ports/manualLedgerStore';
     },
     {
       provide: ManualLedgerService,
-      inject: [MANUAL_LEDGER_STORE],
-      useFactory: (store: ManualLedgerStore) => new ManualLedgerService(store),
+      inject: [MANUAL_LEDGER_STORE, PRODUCTION_RISK_STATE_STORE],
+      useFactory: (store: ManualLedgerStore, riskStateStore: ProductionRiskStateStore) =>
+        new ManualLedgerService(store, riskStateStore),
     },
   ],
   exports: [ManualLedgerService],
