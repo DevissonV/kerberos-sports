@@ -72,6 +72,8 @@ export interface RefinementTickSummary {
   oddsAvailableFixtures?: number;
   analyzedFixtures?: number;
   marketAnalyzed?: number;
+  marketAnalysisAttempted?: number;
+  marketAnalysisCompleted?: number;
   oddsAvailable?: number;
   noOdds?: number;
   noBetCount?: number;
@@ -155,11 +157,15 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `modelledFixtures=${summary.modelledFixtures ?? 0}`,
     `preAnalysisCount=${summary.preAnalysisCount ?? 0}`,
     `PREANALYSIS_ELIGIBLE=${summary.preAnalysisEligible ?? 0}`,
+    `PREANALYSIS_ACTIVE=${summary.preAnalysisCount ?? 0}`,
+    `T6_ELIGIBLE=${summary.decisionWindowFixtures}`,
     `oddsRequested=${summary.oddsRequested ?? 0}`,
     `oddsAvailableFixtures=${summary.oddsAvailableFixtures ?? 0}`,
     `ODDS_AVAILABLE=${summary.oddsAvailable ?? summary.oddsAvailableFixtures ?? 0}`,
     `analyzedFixtures=${summary.analyzedFixtures ?? 0}`,
     `marketAnalyzed=${summary.marketAnalyzed ?? 0}`,
+    `MARKET_ANALYSIS_ATTEMPTED=${summary.marketAnalysisAttempted ?? 0}`,
+    `MARKET_ANALYSIS_COMPLETED=${summary.marketAnalysisCompleted ?? 0}`,
     `TODAY_RAW_FIXTURES=${summary.todayRawFixtures ?? 0}`,
     `TODAY_MODEL_ENABLED=${summary.todayModelEnabled ?? 0}`,
     `TODAY_MODELABLES=${summary.todayModelable ?? 0}`,
@@ -211,6 +217,7 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `BET_COUNT=${summary.paperBetsCreated}`,
     `NO_BET_COUNT=${summary.noBets ?? 0}`,
     `NO_ODDS_COUNT=${summary.oddsUnavailable ?? 0}`,
+    `BUDGET_BLOCKED_COUNT=${summary.budgetBlocked ?? 0}`,
     `INSUFFICIENT_DATA_COUNT=${summary.insufficientData ?? 0}`,
     '',
     `lunaSelected=${summary.lunaSelected}`,
@@ -458,33 +465,36 @@ export class RefinementService {
         tick.budgetCurrentUsage = daily.fullOddsScans;
         tick.budgetRemaining = Math.max(0, config.maxOddsPapiFullScansPerDay - daily.fullOddsScans);
         tick.budgetResetAt = nextUtcDay(day);
-        tick.budgetBlocked = precheck.decisionWindowFixtures.length;
+        // El guard solo informa que no queda cupo de full scans; no bloquea el
+        // refinamiento dirigido de fixtures ya elegibles en T-6.
+        tick.budgetBlocked = 0;
       }
-      const pending = budgetGuard
-        ? []
-        : prioritizeTodayFirst(
-            precheck.decisionWindowFixtures.map((entry) => ({
-              entry,
-              fixtureId: entry.fixture.id,
-              kickoffAt: entry.fixture.kickoffAt,
-            })),
-            now,
-          )
-            .map((item) => item.entry)
-            .filter((entry) =>
-              this.refinementStore.claimDecisionSnapshot(
-                PROTOCOL_COHORT_ID,
-                entry.fixture.id,
-                entry.decisionAt,
-              ),
-            );
-      if (pending.length > 0 && !budgetGuard) {
+      // El presupuesto limita full scans, no las consultas dirigidas de fixtures
+      // que ya alcanzaron T-6. Esas consultas son necesarias para cerrar el estado.
+      const pending = prioritizeTodayFirst(
+        precheck.decisionWindowFixtures.map((entry) => ({
+          entry,
+          fixtureId: entry.fixture.id,
+          kickoffAt: entry.fixture.kickoffAt,
+        })),
+        now,
+      )
+        .map((item) => item.entry)
+        .filter((entry) =>
+          this.refinementStore.claimDecisionSnapshot(
+            PROTOCOL_COHORT_ID,
+            entry.fixture.id,
+            entry.decisionAt,
+          ),
+        );
+      if (pending.length > 0) {
+        tick.marketAnalysisAttempted = pending.length;
         const result = await this.quant.runScanForFixtures(
           pending.map((entry) => entry.fixture),
           now,
         );
         tick.precheckOnly = false;
-        tick.fullOddsScans = 1;
+        tick.fullOddsScans = budgetGuard ? 0 : 1;
         tick.poissonModeled = result.result.poissonModeled;
         const modelledFixtures = new Map<string, Fixture>();
         for (const analysis of allAnalyses)
@@ -497,6 +507,7 @@ export class RefinementService {
         ).length;
         tick.upcomingModelled = tick.modelledFixtures - (tick.todayModelled ?? 0);
         tick.marketAnalyzed = result.result.analyses?.length ?? result.result.quantCandidates;
+        tick.marketAnalysisCompleted = pending.length;
         tick.todayMarketAnalyzed =
           result.result.analyses?.filter(
             (analysis) => calendarDateInBogota(analysis.fixture.kickoffAt) === todayDate,
@@ -514,6 +525,24 @@ export class RefinementService {
           (result.scan?.report.temporalEligible ?? 0) -
             (result.scan?.report.candidatesNormalized ?? 0),
         );
+        const analyzedIds = new Set(
+          (result.result.analyses ?? []).map((analysis) => analysis.fixture.id),
+        );
+        const modelByFixture = new Map(
+          allAnalyses.map((analysis) => [analysis.fixture.id, analysis]),
+        );
+        for (const entry of pending) {
+          if (analyzedIds.has(entry.fixture.id)) continue;
+          const model = modelByFixture.get(entry.fixture.id)?.model;
+          if (model === undefined) continue;
+          this.modelAnalysisStore.saveTerminalMarketDecision({
+            fixture: entry.fixture,
+            snapshotAt: now,
+            model,
+            decision: 'NO_ODDS',
+            reason: 'NO_BOOKMAKER',
+          });
+        }
         tick.oddsRequested = tick.oddsPapiRequests;
         tick.oddsAvailableFixtures = result.scan?.report.candidatesNormalized ?? 0;
         tick.analyzedFixtures = result.result.analyses?.length ?? 0;
@@ -527,8 +556,6 @@ export class RefinementService {
         tick.lunaCacheHits = result.luna.cacheHits;
         tick.paperBetsCreated = result.paperBetsCreated;
         tick.quantCandidates = result.result.quantCandidates;
-      } else if (budgetGuard && precheck.decisionWindowFixtures.length > 0) {
-        markError(tick, new Error('BUDGET_GUARD'), 'PARTIAL');
       }
     } catch (cause) {
       markError(tick, cause, 'ERROR');

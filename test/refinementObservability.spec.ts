@@ -175,7 +175,7 @@ describe('observabilidad de REFINEMENT_MODE', () => {
     });
   });
 
-  it('explica cuántos fixtures quedan bloqueados por el presupuesto diario', async () => {
+  it('permite refinamiento T-6 aunque el presupuesto de full scans esté agotado', async () => {
     const { service, store, notifications } = makeDeps({
       scanning: {
         precheck: () =>
@@ -186,7 +186,11 @@ describe('observabilidad de REFINEMENT_MODE', () => {
             observationFixtures: 0,
             fixtures: [],
             decisionWindowFixtures: Array.from({ length: 12 }, (_, index) => ({
-              fixture: { id: `f${index}`, leagueId: 39 },
+              fixture: {
+                id: `f${index}`,
+                leagueId: 39,
+                kickoffAt: new Date(NOW.getTime() + 6 * 60 * 60 * 1000),
+              },
               decisionAt: NOW,
               needsSnapshot: true,
             })),
@@ -214,12 +218,13 @@ describe('observabilidad de REFINEMENT_MODE', () => {
       budgetLimit: 2,
       budgetCurrentUsage: 2,
       budgetRemaining: 0,
-      budgetBlocked: 12,
-      poissonModeled: 0,
+      budgetBlocked: 0,
+      fullOddsScans: 0,
+      marketAnalysisAttempted: 12,
+      marketAnalysisCompleted: 12,
+      paperBetsCreated: 2,
     });
-    expect(notifications.send).toHaveBeenCalledWith(
-      expect.stringContaining('Pendientes por límite API: 12'),
-    );
+    expect(notifications.send).toHaveBeenCalled();
   });
 
   it('es fail-open si Telegram falla y no duplica heartbeat en el mismo tick', async () => {

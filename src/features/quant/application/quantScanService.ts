@@ -120,7 +120,6 @@ export class QuantScanService {
     let analysisMessagesSent = 0;
     for (const analysis of result.analyses) {
       this.modelAnalysisStore.saveMarketAnalysis(analysis);
-      if (analysis.decision !== 'BET') continue;
       const prepared = result.prepared.find(
         (entry) => entry.bet.fixtureId === Number(analysis.fixture.id),
       );

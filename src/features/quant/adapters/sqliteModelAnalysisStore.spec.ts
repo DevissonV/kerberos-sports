@@ -34,4 +34,24 @@ describe('SqliteModelAnalysisStore', () => {
     expect(store.listLatest('PREANALYSIS')).toHaveLength(1);
     store.close();
   });
+
+  it('cierra un fixture sin cuotas con decisión terminal NO_ODDS', () => {
+    const store = new SqliteModelAnalysisStore(':memory:');
+    const analysis = runModelAnalysis([fixture], () => history, new Date('2026-09-20T12:00:00Z'))
+      .analyses[0]!;
+    store.saveModelAnalysis(analysis);
+    store.saveTerminalMarketDecision({
+      fixture,
+      snapshotAt: new Date('2026-09-21T06:00:00Z'),
+      model: analysis.model,
+      decision: 'NO_ODDS',
+      reason: 'NO_BOOKMAKER',
+    });
+    expect(store.findLatest('1', 'MARKET_DECISION')).toMatchObject({
+      decision: 'NO_ODDS',
+      reason: 'NO_BOOKMAKER',
+    });
+    expect(store.findLatest('1', 'PREANALYSIS')).not.toBeNull();
+    store.close();
+  });
 });

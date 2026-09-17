@@ -2,7 +2,11 @@ import { DatabaseSync, type DatabaseSync as Db } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { QuantFixtureAnalysis } from '../application/quantPipeline';
-import type { ModelAnalysisStore, StoredModelAnalysis } from '../ports/modelAnalysisStore';
+import type {
+  ModelAnalysisStore,
+  StoredModelAnalysis,
+  TerminalMarketDecision,
+} from '../ports/modelAnalysisStore';
 import type { ModelAnalysis } from '../domain/modelAnalysis';
 import { findLeagueDefinition } from '../../scanning/domain/leagueUniverse';
 
@@ -120,6 +124,39 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
       );
   }
 
+  saveTerminalMarketDecision(decision: TerminalMarketDecision): void {
+    const cohortId = findLeagueDefinition(decision.fixture)?.cohortId ?? 'KSS-V1-C01';
+    this.db
+      .prepare(
+        `
+      INSERT INTO model_analyses
+        (cohortId, fixtureId, snapshotType, snapshotAt, league, homeTeam, awayTeam, kickoff,
+         homeLambda, awayLambda, expectedGoals, probabilityOver25, probabilityUnder25,
+         modelSelection, decision, reason)
+      VALUES (?, ?, 'MARKET_DECISION', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(cohortId, fixtureId, snapshotType) DO UPDATE SET
+        snapshotAt=excluded.snapshotAt, decision=excluded.decision, reason=excluded.reason
+    `,
+      )
+      .run(
+        cohortId,
+        decision.fixture.id,
+        decision.snapshotAt.toISOString(),
+        decision.fixture.league,
+        decision.fixture.homeTeam,
+        decision.fixture.awayTeam,
+        decision.fixture.kickoffAt.toISOString(),
+        decision.model.lambdaHome,
+        decision.model.lambdaAway,
+        decision.model.lambdaTotal,
+        decision.model.pOver,
+        decision.model.pUnder,
+        decision.model.pOver >= decision.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+        decision.decision,
+        decision.reason,
+      );
+  }
+
   findLatest(
     fixtureId: string,
     snapshotType?: ModelAnalysis['snapshotType'],
@@ -143,6 +180,8 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
       },
       snapshotAt: new Date(String(row.snapshotAt)),
       snapshotType: String(row.snapshotType) as StoredModelAnalysis['snapshotType'],
+      decision: String(row.decision) as StoredModelAnalysis['decision'],
+      reason: nullableText(row.reason),
       model: {
         modelVersion: 'poisson-v1',
         snapshotAt: new Date(String(row.snapshotAt)),
@@ -191,6 +230,8 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
         },
         snapshotAt: new Date(String(row.snapshotAt)),
         snapshotType: String(row.snapshotType) as StoredModelAnalysis['snapshotType'],
+        decision: String(row.decision) as StoredModelAnalysis['decision'],
+        reason: nullableText(row.reason),
         model: {
           modelVersion: 'poisson-v1' as const,
           snapshotAt: new Date(String(row.snapshotAt)),
@@ -215,4 +256,8 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
   close(): void {
     this.db.close();
   }
+}
+
+function nullableText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
