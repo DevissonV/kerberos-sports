@@ -29,10 +29,16 @@ describe('formatQuantPaperMessage', () => {
         '🏆 Premier League',
         '',
         'Mercado:',
-        'O/U 2.5',
+        'TOTAL DE GOLES',
         '',
         'Pick:',
-        'OVER 2.5',
+        'MÁS DE 2.5 GOLES',
+        '',
+        '👉 En palabras simples:',
+        'Entre los dos equipos deben marcar 3 goles o más.',
+        '',
+        '✅ Cumple: 2-1, 1-2, 3-0, 2-2, 3-1',
+        '❌ No cumple: 0-0, 1-0, 0-1, 1-1, 2-0',
         '',
         'Casa:',
         'pinnacle',
@@ -69,8 +75,10 @@ describe('formatQuantPaperMessage', () => {
     );
   });
 
-  it('el pick UNDER se etiqueta UNDER 2.5', () => {
+  it('el pick UNDER se traduce a lenguaje humano', () => {
     const message = formatQuantPaperMessage(makePick({ selection: 'UNDER_2_5' }));
-    expect(message).toContain('Pick:\nUNDER 2.5');
+    expect(message).toContain('Pick:\nMENOS DE 2.5 GOLES');
+    expect(message).toContain('Entre los dos equipos deben marcar 2 goles o menos.');
+    expect(message).not.toMatch(/\bUNDER\b|\bOVER\b/);
   });
 });

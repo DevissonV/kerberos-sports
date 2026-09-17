@@ -84,7 +84,10 @@ describe('formatPickNotification (formatter V1)', () => {
         'TOTAL DE GOLES',
         '',
         'Selección:',
-        'MAS DE 2.5',
+        'MÁS DE 2.5 GOLES',
+        '',
+        '👉 Significa:',
+        'Entre los dos equipos deben marcar 3 goles o más.',
         '',
         'Casa:',
         '1xbet',
@@ -118,7 +121,7 @@ describe('formatPickNotification (formatter V1)', () => {
 
   it('mapea UNDER_2_5 a MENOS DE 2.5 y edge negativo con signo', () => {
     const message = formatPickNotification({ ...pick, selection: 'UNDER_2_5', edge: -0.02 });
-    expect(message).toContain('MENOS DE 2.5');
+    expect(message).toContain('MENOS DE 2.5 GOLES');
     expect(message).toContain('-2.00%');
   });
 

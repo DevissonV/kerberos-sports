@@ -13,6 +13,7 @@ import type { RefinementCounters, RefinementStore } from '../ports/refinementSto
 import { QuantScanService } from './quantScanService';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { runModelAnalysis } from '../domain/modelAnalysis';
+import { marketLanguage } from '../../notifications/domain/marketLanguage';
 import { MODEL_ANALYSIS_STORE } from '../ports/modelAnalysisStore';
 import type { ModelAnalysisStore } from '../ports/modelAnalysisStore';
 import { SqliteModelAnalysisStore } from '../adapters/sqliteModelAnalysisStore';
@@ -260,7 +261,13 @@ export class RefinementService {
     };
 
     this.refinementStore.increment(day, { ticks: 1 });
-    let radar: { home: string; away: string; selection: string; probability: number }[] = [];
+    let radar: {
+      home: string;
+      away: string;
+      selection: string;
+      explanation: string;
+      probability: number;
+    }[] = [];
     try {
       const settlement = await this.settlement.settleOpenBets();
       tick.settlements = settlement.settled;
@@ -298,7 +305,12 @@ export class RefinementService {
         .map((analysis) => ({
           home: analysis.fixture.homeTeam,
           away: analysis.fixture.awayTeam,
-          selection: analysis.model.pOver >= analysis.model.pUnder ? 'OVER 2.5' : 'UNDER 2.5',
+          selection: marketLanguage(
+            analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+          ).title,
+          explanation: marketLanguage(
+            analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+          ).explanation,
           probability: Math.max(analysis.model.pOver, analysis.model.pUnder),
         }))
         .sort((a, b) => b.probability - a.probability);

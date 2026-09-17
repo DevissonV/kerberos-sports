@@ -11,15 +11,15 @@ export interface MarketLanguage {
 const MARKET_LANGUAGE: Record<OverUnderSelection, MarketLanguage> = {
   OVER_2_5: {
     title: 'MÁS DE 2.5 GOLES',
-    explanation: 'Entre ambos equipos deben marcar 3 GOLES O MÁS.',
-    winningExamples: '3-0, 2-1, 1-2, 2-2...',
-    losingExamples: '0-0, 1-0, 0-1, 1-1, 2-0...',
+    explanation: 'Entre los dos equipos deben marcar 3 goles o más.',
+    winningExamples: '2-1, 1-2, 3-0, 2-2, 3-1',
+    losingExamples: '0-0, 1-0, 0-1, 1-1, 2-0',
   },
   UNDER_2_5: {
     title: 'MENOS DE 2.5 GOLES',
-    explanation: 'Entre ambos equipos deben marcar 2 GOLES O MENOS.',
-    winningExamples: '0-0, 1-0, 0-1, 1-1, 2-0...',
-    losingExamples: '2-1, 1-2, 3-0, 2-2...',
+    explanation: 'Entre los dos equipos deben marcar 2 goles o menos.',
+    winningExamples: '0-0, 1-0, 0-1, 1-1, 2-0, 0-2',
+    losingExamples: '2-1, 1-2, 3-0, 2-2',
   },
 };
 

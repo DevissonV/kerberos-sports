@@ -4,6 +4,7 @@
  */
 
 import type { OverUnderSelection } from '../../scanning/domain/concepts';
+import { marketLanguage } from './marketLanguage';
 
 /** Datos neutralos de un pick aceptado, listos para formatear. */
 export interface PickNotification {
@@ -21,11 +22,6 @@ export interface PickNotification {
   stake: number;
 }
 
-const SELECTION_LABELS: Record<OverUnderSelection, string> = {
-  OVER_2_5: 'MAS DE 2.5',
-  UNDER_2_5: 'MENOS DE 2.5',
-};
-
 function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -36,6 +32,7 @@ function signedPercent(value: number): string {
 }
 
 export function formatPickNotification(pick: PickNotification): string {
+  const market = marketLanguage(pick.selection);
   return [
     '⚽ KERBEROS SPORTS',
     '',
@@ -49,7 +46,10 @@ export function formatPickNotification(pick: PickNotification): string {
     'TOTAL DE GOLES',
     '',
     'Selección:',
-    SELECTION_LABELS[pick.selection],
+    market.title,
+    '',
+    '👉 Significa:',
+    market.explanation,
     '',
     'Casa:',
     pick.bookmaker,

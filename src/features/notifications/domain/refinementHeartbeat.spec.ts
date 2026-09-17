@@ -85,4 +85,37 @@ describe('formatRefinementHeartbeat', () => {
     });
     expect(message).toContain('Partidos detectados: 7');
   });
+
+  it('muestra el radar en lenguaje humano sin enums técnicos', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-15T12:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 1 }],
+      radar: [
+        {
+          home: 'Málaga',
+          away: 'Villarreal',
+          selection: 'MENOS DE 2.5 GOLES',
+          explanation: 'Entre los dos equipos deben marcar 2 goles o menos.',
+          probability: 0.586,
+        },
+      ],
+      counters: {
+        ticks: 1,
+        precheckOnly: 1,
+        eligibleFixtures: 1,
+        decisionSnapshotsCaptured: 0,
+        fullOddsScans: 0,
+        oddsPapiRequests: 0,
+        quantCandidates: 0,
+        paperBetsCreated: 0,
+        lunaCalls: 0,
+        settlements: 0,
+        errors: 0,
+      },
+    });
+    expect(message).toContain('MENOS DE 2.5 GOLES');
+    expect(message).toContain('Entre los dos equipos deben marcar 2 goles o menos.');
+    expect(message).not.toMatch(/\bUNDER\b|\bOVER\b/);
+  });
 });

@@ -5,6 +5,7 @@
  */
 
 import type { OverUnderSelection } from '../../scanning/domain/concepts';
+import { marketLanguage } from './marketLanguage';
 
 export interface PaperPickMessageInput {
   league?: string;
@@ -21,11 +22,6 @@ export interface PaperPickMessageInput {
   stake: number;
 }
 
-const SELECTION_LABELS: Record<OverUnderSelection, string> = {
-  OVER_2_5: 'OVER 2.5',
-  UNDER_2_5: 'UNDER 2.5',
-};
-
 function percent1(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -41,6 +37,7 @@ function signedPercent1(value: number): string {
 }
 
 export function formatQuantPaperMessage(pick: PaperPickMessageInput): string {
+  const market = marketLanguage(pick.selection);
   return [
     '⚽ KERBEROS SPORTS — PAPER',
     '',
@@ -48,10 +45,16 @@ export function formatQuantPaperMessage(pick: PaperPickMessageInput): string {
     `🏆 ${pick.league ?? 'Premier League'}`,
     '',
     'Mercado:',
-    'O/U 2.5',
+    'TOTAL DE GOLES',
     '',
     'Pick:',
-    SELECTION_LABELS[pick.selection],
+    market.title,
+    '',
+    '👉 En palabras simples:',
+    market.explanation,
+    '',
+    `✅ Cumple: ${market.winningExamples}`,
+    `❌ No cumple: ${market.losingExamples}`,
     '',
     'Casa:',
     pick.bookmaker,

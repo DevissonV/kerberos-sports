@@ -17,7 +17,13 @@ export interface RefinementHeartbeatInput {
   preAnalysisCount?: number;
   marketAnalyzed?: number;
   noOdds?: number;
-  radar?: readonly { home: string; away: string; selection: string; probability: number }[];
+  radar?: readonly {
+    home: string;
+    away: string;
+    selection: string;
+    explanation?: string;
+    probability: number;
+  }[];
   bets?: number;
   noBets?: number;
   insufficientData?: number;
@@ -52,7 +58,9 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     for (const entry of input.radar.slice(0, 3))
       lines.push(
         `${entry.home} vs ${entry.away}`,
-        `${entry.selection} — Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
+        entry.selection,
+        `Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
+        ...(entry.explanation === undefined ? [] : [`👉 Significa: ${entry.explanation}`]),
       );
   }
   if (input.budgetBlocked !== undefined && input.budgetBlocked > 0) {

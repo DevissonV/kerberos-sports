@@ -46,9 +46,9 @@ describe('formatRecommendationTelegramMessage', () => {
       options,
     );
     expect(message).toContain('MÁS DE 2.5 GOLES');
-    expect(message).toContain('3 GOLES O MÁS');
-    expect(message).toContain('✅ Ganas con: 3-0, 2-1, 1-2, 2-2...');
-    expect(message).toContain('❌ Pierdes con: 0-0, 1-0, 0-1, 1-1, 2-0...');
+    expect(message).toContain('3 goles o más');
+    expect(message).toContain('✅ Ganas con: 2-1, 1-2, 3-0, 2-2, 3-1');
+    expect(message).toContain('❌ Pierdes con: 0-0, 1-0, 0-1, 1-1, 2-0');
     expect(message).toContain('🟢 10.000 COP — 2.0%\n✅ AUTORIZADA');
     expect(message).toContain('🟡 15.000 COP — 3.0%\n🔒 NO AUTORIZADA');
     expect(message).toContain('🔴 20.000 COP — 4.0%\n🔒 NO AUTORIZADA');
@@ -63,7 +63,7 @@ describe('formatRecommendationTelegramMessage', () => {
       { ...options, riskDecision: { ...options.riskDecision, stakeCop: 15_000, tier: 'ELEVATED' } },
     );
     expect(message).toContain('MENOS DE 2.5 GOLES');
-    expect(message).toContain('2 GOLES O MENOS');
+    expect(message).toContain('2 goles o menos');
     expect(message).toContain('🟡 15.000 COP — 3.0%\n✅ AUTORIZADA');
   });
 
