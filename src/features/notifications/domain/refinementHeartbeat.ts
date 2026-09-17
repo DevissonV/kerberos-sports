@@ -2,6 +2,7 @@ import type { RefinementCounters } from '../../quant/ports/refinementStore';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { formatKickoffBogota } from './formatKickoff';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
+import { humanizeTechnicalStatus } from './technicalStatus';
 
 export interface RefinementHeartbeatLeague {
   leagueId: number;
@@ -119,9 +120,10 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     ...(input.todayRejectionExamples === undefined || input.todayRejectionExamples.length === 0
       ? []
       : [
-          ...input.todayRejectionExamples
-            .slice(0, 3)
-            .map((entry) => `• ${entry.home} vs ${entry.away} — ${entry.reason}`),
+          ...input.todayRejectionExamples.slice(0, 3).flatMap((entry) => {
+            const status = humanizeTechnicalStatus(entry.reason);
+            return [`• ${entry.home} vs ${entry.away}`, `  ${status.label}`];
+          }),
           ...(input.todayRejected !== undefined && input.todayRejected > 3
             ? [`• +${input.todayRejected - 3} descartes adicionales`]
             : []),
@@ -208,6 +210,10 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     if (input.budgetResetAt !== undefined)
       lines.splice(9, 0, `Próximo reset: ${input.budgetResetAt}`);
   }
-  if (input.error !== undefined) lines.push('', `Detalle: ${input.error.slice(0, 180)}`);
+  if (input.error !== undefined) {
+    const status = humanizeTechnicalStatus(input.error);
+    lines.push('', `Detalle: ${status.label}`);
+    if (status.explanation !== undefined) lines.push(status.explanation);
+  }
   return lines.join('\n');
 }

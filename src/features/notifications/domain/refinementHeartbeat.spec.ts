@@ -35,7 +35,8 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).toContain('⚽ KERBEROS SPORTS');
     expect(message).toContain('🔎 6 partidos detectados · 👀 0 en preanálisis');
     expect(message).toContain('⚠️ Revisión con incidencia');
-    expect(message).toContain('Detalle: BUDGET_GUARD');
+    expect(message).toContain('Detalle: ⚠️ Límite de consultas alcanzado temporalmente');
+    expect(message).not.toContain('BUDGET_GUARD');
     expect(message).not.toContain('snapshot');
     expect(message).not.toContain('full scan');
   });
@@ -222,6 +223,46 @@ describe('formatRefinementHeartbeat', () => {
     });
     expect(message).toContain('👀 Preanálisis · Esperando cuotas');
     expect(message).not.toContain('Seguimiento activo');
+  });
+
+  it('presenta descartes de hoy en bloques humanos y conserva el conteo', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-17T12:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 3 }],
+      todayRejected: 3,
+      todayRejectionExamples: [
+        { home: 'Real Betis', away: 'Getafe', reason: 'MATCH_STARTED' },
+        { home: 'Málaga', away: 'Villarreal', reason: 'PREMATCH_WINDOW_CLOSED' },
+        { home: 'Bucaramanga', away: 'Medellín', reason: 'OBSERVATION_ONLY' },
+      ],
+      counters: BASE_COUNTERS,
+    });
+    expect(message).toContain('No modelables hoy: 3');
+    expect(message).toContain('• Real Betis vs Getafe\n  ⏱️ Partido ya iniciado');
+    expect(message).toContain('• Málaga vs Villarreal\n  ⏱️ Ventana prepartido cerrada');
+    expect(message).toContain(
+      '• Bucaramanga vs Medellín\n  👀 Liga todavía no habilitada para modelado',
+    );
+    expect(message).not.toContain('MATCH_STARTED');
+    expect(message).not.toContain('OBSERVATION_ONLY');
+  });
+
+  it('limita ejemplos y conserva los descartes adicionales', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-17T12:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 8 }],
+      todayRejected: 8,
+      todayRejectionExamples: Array.from({ length: 8 }, (_, index) => ({
+        home: `Home ${index}`,
+        away: `Away ${index}`,
+        reason: 'INSUFFICIENT_HISTORY',
+      })),
+      counters: BASE_COUNTERS,
+    });
+    expect((message.match(/📊 Historial insuficiente/g) ?? []).length).toBe(3);
+    expect(message).toContain('• +5 descartes adicionales');
   });
 
   it('muestra el resumen superior con el conteo real de detectados y preanálisis', () => {
