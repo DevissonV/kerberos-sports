@@ -17,4 +17,5 @@ export interface ModelAnalysisStore {
     fixtureId: string,
     snapshotType?: ModelAnalysis['snapshotType'],
   ): StoredModelAnalysis | null;
+  listLatest(snapshotType?: ModelAnalysis['snapshotType']): readonly StoredModelAnalysis[];
 }

@@ -18,13 +18,13 @@ import { MODEL_ANALYSIS_STORE } from '../ports/modelAnalysisStore';
 import type { ModelAnalysisStore } from '../ports/modelAnalysisStore';
 import { SqliteModelAnalysisStore } from '../adapters/sqliteModelAnalysisStore';
 import { historicalMatchesForLeague } from '../../poisson/adapters/historicalLeagueRegistry';
-import { resolveLeagueStatus } from '../../scanning/domain/leagueUniverse';
 import {
   calendarDateInBogota,
   prioritizeTodayFirst,
   selectTodayFirst,
 } from '../../scanning/domain/todayFirst';
 import type { Fixture } from '../../scanning/domain/concepts';
+import { classifyTodayFixtures } from '../../scanning/domain/todayFunnel';
 
 export interface RefinementLeagueSummary {
   leagueId: number;
@@ -102,6 +102,14 @@ export interface RefinementTickSummary {
   error?: string;
   todayRawFixtures?: number;
   todayModelEnabled?: number;
+  todayModelable?: number;
+  todayHistoryReady?: number;
+  todayAliasReady?: number;
+  todayWithinModelHorizon?: number;
+  todayStarted?: number;
+  todayExpired?: number;
+  todayRejected?: number;
+  todayRejectionExamples?: readonly { home: string; away: string; reason: string }[];
   todayModelEligible?: number;
   todayModelled?: number;
   todayPreanalysis?: number;
@@ -149,11 +157,18 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `marketAnalyzed=${summary.marketAnalyzed ?? 0}`,
     `TODAY_RAW_FIXTURES=${summary.todayRawFixtures ?? 0}`,
     `TODAY_MODEL_ENABLED=${summary.todayModelEnabled ?? 0}`,
+    `TODAY_MODELABLES=${summary.todayModelable ?? 0}`,
+    `TODAY_HISTORY_READY=${summary.todayHistoryReady ?? 0}`,
+    `TODAY_ALIAS_READY=${summary.todayAliasReady ?? 0}`,
+    `TODAY_WITHIN_MODEL_HORIZON=${summary.todayWithinModelHorizon ?? 0}`,
     `TODAY_MODEL_ELIGIBLE=${summary.todayModelEligible ?? 0}`,
     `TODAY_MODELLED=${summary.todayModelled ?? 0}`,
     `TODAY_PREANALYSIS=${summary.todayPreanalysis ?? 0}`,
     `TODAY_MARKET_WINDOW=${summary.todayMarketWindow ?? 0}`,
     `TODAY_MARKET_ANALYZED=${summary.todayMarketAnalyzed ?? 0}`,
+    `TODAY_STARTED=${summary.todayStarted ?? 0}`,
+    `TODAY_EXPIRED=${summary.todayExpired ?? 0}`,
+    `TODAY_REJECTED=${summary.todayRejected ?? 0}`,
     `UPCOMING_MODELLED=${summary.upcomingModelled ?? 0}`,
     `UPCOMING_PREANALYSIS=${summary.upcomingPreanalysis ?? 0}`,
     ...Object.entries(summary.todayExclusions ?? {}).map(([reason, count]) => `${reason}=${count}`),
@@ -354,24 +369,25 @@ export class RefinementService {
       tick.radarTodayShown = radarSelection.today.length;
       tick.radarUpcomingShown = radarSelection.upcoming.length;
       const todayDate = calendarDateInBogota(now);
-      const todayRaw = (precheck.rawFixtureList ?? []).filter(
-        (fixture) => calendarDateInBogota(fixture.kickoffAt) === todayDate,
-      );
-      const todayModelEnabled = precheck.fixtures.filter(
-        (entry) => calendarDateInBogota(entry.fixture.kickoffAt) === todayDate,
-      );
       const todayPreanalysis = modelAnalysis.analyses.filter(
         (analysis) => calendarDateInBogota(analysis.fixture.kickoffAt) === todayDate,
       );
-      const horizonEnd = now.getTime() + 24 * 60 * 60 * 1000;
-      const todayPreanalysisEligible = todayModelEnabled.filter(
-        (entry) =>
-          entry.fixture.kickoffAt.getTime() > now.getTime() &&
-          entry.fixture.kickoffAt.getTime() <= horizonEnd,
+      const todayFunnel = classifyTodayFixtures(
+        precheck.rawFixtureList ?? [],
+        now,
+        new Set(todayPreanalysis.map((analysis) => analysis.fixture.id)),
       );
-      tick.todayRawFixtures = todayRaw.length;
-      tick.todayModelEnabled = todayModelEnabled.length;
-      tick.todayModelEligible = todayPreanalysis.length;
+      tick.todayRawFixtures = todayFunnel.raw;
+      tick.todayModelEnabled = todayFunnel.modelEnabled;
+      tick.todayModelable = todayFunnel.modelable;
+      tick.todayHistoryReady = todayFunnel.historyReady;
+      tick.todayAliasReady = todayFunnel.aliasReady;
+      tick.todayWithinModelHorizon = todayFunnel.withinModelHorizon;
+      tick.todayStarted = todayFunnel.started;
+      tick.todayExpired = todayFunnel.expired;
+      tick.todayRejected = todayFunnel.rejected;
+      tick.todayRejectionExamples = todayFunnel.rejectionExamples;
+      tick.todayModelEligible = todayFunnel.modelable;
       tick.todayPreanalysis = todayPreanalysis.length;
       tick.todayMarketWindow = precheck.decisionWindowFixtures.filter(
         (entry) => calendarDateInBogota(entry.fixture.kickoffAt) === todayDate,
@@ -379,24 +395,7 @@ export class RefinementService {
       tick.upcomingPreanalysis = modelAnalysis.analyses.length - todayPreanalysis.length;
       tick.todayModelled = todayPreanalysis.length;
       tick.upcomingModelled = tick.upcomingPreanalysis;
-      tick.todayExclusions = {
-        TODAY_UNSUPPORTED_LEAGUE: todayRaw.filter(
-          (fixture) => resolveLeagueStatus(fixture) === 'EXCLUDED',
-        ).length,
-        TODAY_OBSERVATION_ONLY: todayRaw.filter(
-          (fixture) => resolveLeagueStatus(fixture) === 'OBSERVATION_ONLY',
-        ).length,
-        TODAY_INSUFFICIENT_HISTORY: Math.max(
-          0,
-          todayPreanalysisEligible.length - todayPreanalysis.length,
-        ),
-        TODAY_ALIAS_FAILURE: 0,
-        TODAY_OUTSIDE_HORIZON: Math.max(
-          0,
-          todayModelEnabled.length - todayPreanalysisEligible.length,
-        ),
-        TODAY_OTHER_REJECTION: 0,
-      };
+      tick.todayExclusions = todayFunnel.rejectionBreakdown;
       tick.outsideDecisionWindow = precheck.eligibleFixtures - tick.decisionWindowFixtures;
       tick.byLeague = precheck.byLeague.map((entry) => ({
         leagueId: entry.leagueId,
@@ -462,6 +461,10 @@ export class RefinementService {
         ).length;
         tick.upcomingModelled = tick.modelledFixtures - (tick.todayModelled ?? 0);
         tick.marketAnalyzed = result.result.analyses?.length ?? result.result.quantCandidates;
+        tick.todayMarketAnalyzed =
+          result.result.analyses?.filter(
+            (analysis) => calendarDateInBogota(analysis.fixture.kickoffAt) === todayDate,
+          ).length ?? 0;
         tick.oddsAvailable = result.scan?.report.candidatesNormalized ?? 0;
         tick.noOdds = result.result.rejected?.NO_BOOKMAKER ?? 0;
         tick.quantCandidates = result.result.quantCandidates;
@@ -551,9 +554,18 @@ export class RefinementService {
             marketAnalyzed: tick.marketAnalyzed,
             noOdds: tick.noOdds,
             radar,
+            closedFollowups: this.closedFollowups(now, radar),
             todayRawFixtures: tick.todayRawFixtures,
             todayModelEnabled: tick.todayModelEnabled,
+            todayModelable: tick.todayModelable,
+            todayHistoryReady: tick.todayHistoryReady,
+            todayAliasReady: tick.todayAliasReady,
+            todayWithinModelHorizon: tick.todayWithinModelHorizon,
             todayPreanalysis: tick.todayPreanalysis,
+            todayStarted: tick.todayStarted,
+            todayExpired: tick.todayExpired,
+            todayRejected: tick.todayRejected,
+            todayRejectionExamples: tick.todayRejectionExamples,
             upcomingPreanalysis: tick.upcomingPreanalysis,
             radarTodayShown: tick.radarTodayShown,
             radarUpcomingShown: tick.radarUpcomingShown,
@@ -567,6 +579,33 @@ export class RefinementService {
 
     process.stdout.write(`${renderRefinementTick(tick)}\n`);
     return tick;
+  }
+
+  private closedFollowups(
+    now: Date,
+    radar: readonly { fixtureId?: string; home: string; away: string }[],
+  ) {
+    const activeIds = new Set(radar.map((entry) => entry.fixtureId));
+    return (this.modelAnalysisStore.listLatest?.('PREANALYSIS') ?? [])
+      .filter(
+        (entry) =>
+          entry.fixture.kickoffAt.getTime() <= now.getTime() &&
+          calendarDateInBogota(entry.fixture.kickoffAt) === calendarDateInBogota(now) &&
+          !activeIds.has(entry.fixture.id),
+      )
+      .map((entry) => {
+        const market = marketLanguage(
+          entry.model.pOver >= entry.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+        );
+        return {
+          home: entry.fixture.homeTeam,
+          away: entry.fixture.awayTeam,
+          selection: market.title,
+          probability: Math.max(entry.model.pOver, entry.model.pUnder),
+          kickoffAt: entry.fixture.kickoffAt,
+          reason: 'Partido iniciado / ventana prepartido cerrada',
+        };
+      });
   }
 }
 

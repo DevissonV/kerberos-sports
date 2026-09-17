@@ -146,6 +146,54 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
     };
   }
 
+  listLatest(snapshotType?: ModelAnalysis['snapshotType']): readonly StoredModelAnalysis[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM model_analyses ${snapshotType === undefined ? '' : 'WHERE snapshotType=?'}
+         ORDER BY kickoff ASC, snapshotAt DESC`,
+      )
+      .all(...(snapshotType === undefined ? [] : [snapshotType])) as Record<string, unknown>[];
+    const seen = new Set<string>();
+    return rows
+      .filter((row) => {
+        const key = `${String(row.fixtureId)}:${String(row.snapshotType)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((row) => ({
+        fixture: {
+          id: String(row.fixtureId),
+          sport: 'FOOTBALL' as const,
+          league: String(row.league),
+          homeTeam: String(row.homeTeam),
+          awayTeam: String(row.awayTeam),
+          kickoffAt: new Date(String(row.kickoff)),
+          status: 'NS',
+        },
+        snapshotAt: new Date(String(row.snapshotAt)),
+        snapshotType: String(row.snapshotType) as StoredModelAnalysis['snapshotType'],
+        model: {
+          modelVersion: 'poisson-v1' as const,
+          snapshotAt: new Date(String(row.snapshotAt)),
+          fixtureId: String(row.fixtureId),
+          league: String(row.league),
+          home: String(row.homeTeam),
+          away: String(row.awayTeam),
+          leagueHomeGoalsMean: 0,
+          leagueAwayGoalsMean: 0,
+          homeRoleMatches: 0,
+          awayRoleMatches: 0,
+          lambdaHome: Number(row.homeLambda),
+          lambdaAway: Number(row.awayLambda),
+          lambdaTotal: Number(row.expectedGoals),
+          pOver: Number(row.probabilityOver25),
+          pUnder: Number(row.probabilityUnder25),
+          dataQuality: [],
+        },
+      }));
+  }
+
   close(): void {
     this.db.close();
   }

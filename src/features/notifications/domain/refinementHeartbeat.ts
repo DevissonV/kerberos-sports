@@ -22,6 +22,15 @@ export interface RefinementHeartbeatRadarEntry {
   noOdds?: boolean;
 }
 
+export interface RefinementHeartbeatClosedEntry {
+  home: string;
+  away: string;
+  selection: string;
+  probability: number;
+  kickoffAt: Date;
+  reason: string;
+}
+
 export interface RefinementHeartbeatInput {
   now: Date;
   /** Desglose por liga del universo V1 (orden fijo), sin IDs técnicos en el mensaje. */
@@ -33,13 +42,22 @@ export interface RefinementHeartbeatInput {
   marketAnalyzed?: number;
   noOdds?: number;
   radar?: readonly RefinementHeartbeatRadarEntry[];
+  closedFollowups?: readonly RefinementHeartbeatClosedEntry[];
   bets?: number;
   noBets?: number;
   insufficientData?: number;
   oddsUnavailable?: number;
   todayRawFixtures?: number;
   todayModelEnabled?: number;
+  todayModelable?: number;
+  todayHistoryReady?: number;
+  todayAliasReady?: number;
+  todayWithinModelHorizon?: number;
   todayPreanalysis?: number;
+  todayStarted?: number;
+  todayExpired?: number;
+  todayRejected?: number;
+  todayRejectionExamples?: readonly { home: string; away: string; reason: string }[];
   upcomingPreanalysis?: number;
   radarTodayShown?: number;
   radarUpcomingShown?: number;
@@ -86,9 +104,20 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     `Modelados: ${input.fixturesModelled ?? 0}`,
     `Con mercado evaluado: ${input.marketAnalyzed ?? 0}`,
     `Hoy detectados: ${input.todayRawFixtures ?? 0}`,
-    `Hoy modelables: ${input.todayModelEnabled ?? 0}`,
+    `Hoy modelables: ${input.todayModelable ?? input.todayModelEnabled ?? 0}`,
     `Hoy preanalizados: ${input.todayPreanalysis ?? 0}`,
     `Próximos preanalizados: ${input.upcomingPreanalysis ?? 0}`,
+    ...(input.todayRejected === undefined ? [] : [`No modelables hoy: ${input.todayRejected}`]),
+    ...(input.todayRejectionExamples === undefined || input.todayRejectionExamples.length === 0
+      ? []
+      : [
+          ...input.todayRejectionExamples
+            .slice(0, 3)
+            .map((entry) => `• ${entry.home} vs ${entry.away} — ${entry.reason}`),
+          ...(input.todayRejected !== undefined && input.todayRejected > 3
+            ? [`• +${input.todayRejected - 3} descartes adicionales`]
+            : []),
+        ]),
     `NO_BET: ${input.noBets ?? 0}`,
     `Sin odds: ${input.oddsUnavailable ?? 0}`,
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
@@ -133,6 +162,21 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
         today.length,
       );
     }
+  }
+
+  const closed = input.closedFollowups ?? [];
+  if (closed.length > 0) {
+    lines.push('', '⏱️ Seguimiento cerrado', '');
+    for (const entry of closed.slice(0, 3)) {
+      lines.push(
+        `${entry.home} vs ${entry.away}`,
+        entry.selection,
+        `Preanálisis previo: ${(entry.probability * 100).toFixed(1)}%`,
+        `Motivo: ${entry.reason}`,
+        '',
+      );
+    }
+    if (closed.length > 3) lines.push(`+${closed.length - 3} cierres adicionales`);
   }
 
   lines.push('', hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando');

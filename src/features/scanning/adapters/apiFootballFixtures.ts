@@ -128,7 +128,11 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
     const expiresAt = new Date(now.getTime() + FIXTURE_CACHE_TTL_MS).toISOString();
     const fixtures = bodies
       .flatMap((body) => parseFixtures({ response: assertResponseShape(body).response }))
-      .filter((fixture) => fixture.status === 'NS')
+      .filter(
+        (fixture) =>
+          fixture.status === 'NS' ||
+          calendarDateInBogota(fixture.kickoffAt) === calendarDateInBogota(now),
+      )
       .filter((fixture) => isObservable(fixture))
       .sort((left, right) => left.kickoffAt.getTime() - right.kickoffAt.getTime());
     this.writeCache(fixtures, fetchedAt, expiresAt);
@@ -160,7 +164,7 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
           WHERE expiresAt > ? AND kickoffAt >= ?
           ORDER BY kickoffAt`,
       )
-      .all(now.toISOString(), now.toISOString()) as Record<string, unknown>[];
+      .all(now.toISOString(), localDayStartUtc(now).toISOString()) as Record<string, unknown>[];
     if (rows.length === 0) return null;
     const oldestFetchedAt = Math.min(...rows.map((row) => Date.parse(String(row['fetchedAt']))));
     return {
@@ -200,4 +204,26 @@ export class ApiFootballFixturesAdapter implements FixturesProvider {
       );
     }
   }
+}
+
+function localDayStartUtc(now: Date): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return new Date(
+    Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day), 5, 0, 0),
+  );
+}
+
+function calendarDateInBogota(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }

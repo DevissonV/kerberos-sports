@@ -248,4 +248,27 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).not.toContain('Todavía no son apuestas aprobadas');
     expect(message).toContain('🟢 Sistema funcionando');
   });
+
+  it('muestra el cierre de un preanálisis previo sin convertirlo en apuesta', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-17T21:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 1 }],
+      counters: BASE_COUNTERS,
+      closedFollowups: [
+        {
+          home: 'Málaga',
+          away: 'Villarreal',
+          selection: 'MENOS DE 2.5 GOLES',
+          probability: 0.586,
+          kickoffAt: new Date('2026-09-17T19:30:00Z'),
+          reason: 'Partido iniciado / ventana prepartido cerrada',
+        },
+      ],
+    });
+    expect(message).toContain('⏱️ Seguimiento cerrado');
+    expect(message).toContain('Preanálisis previo: 58.6%');
+    expect(message).toContain('Partido iniciado / ventana prepartido cerrada');
+    expect(message).not.toContain('apuesta aprobada');
+  });
 });

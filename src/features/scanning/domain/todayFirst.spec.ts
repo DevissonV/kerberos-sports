@@ -41,6 +41,8 @@ describe('today-first radar', () => {
   it('usa America/Bogota en la frontera UTC/Bogota', () => {
     expect(calendarDateInBogota(new Date('2026-09-18T04:30:00Z'))).toBe('2026-09-17');
     expect(calendarDateInBogota(new Date('2026-09-18T05:00:00Z'))).toBe('2026-09-18');
+    expect(calendarDateInBogota(new Date('2026-09-17T23:30:00Z'))).toBe('2026-09-17');
+    expect(calendarDateInBogota(new Date('2026-09-18T02:00:00Z'))).toBe('2026-09-17');
   });
 
   it('prioriza TODAY antes de consumir un budget limitado de odds', () => {

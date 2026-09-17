@@ -31,6 +31,7 @@ describe('SqliteModelAnalysisStore', () => {
     store.saveModelAnalysis(analysis);
     store.saveModelAnalysis(analysis);
     expect(store.findLatest('1', 'PREANALYSIS')?.model.fixtureId).toBe('1');
+    expect(store.listLatest('PREANALYSIS')).toHaveLength(1);
     store.close();
   });
 });
