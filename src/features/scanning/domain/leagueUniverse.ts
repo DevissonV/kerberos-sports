@@ -28,7 +28,8 @@ export type LeagueCode =
   | 'LIGUE_1'
   | 'EREDIVISIE'
   | 'PRIMEIRA_LIGA'
-  | 'BELGIAN_PRO_LEAGUE';
+  | 'BELGIAN_PRO_LEAGUE'
+  | 'EUROPA_LEAGUE';
 
 export interface LeagueDefinition {
   code: LeagueCode;
@@ -46,6 +47,17 @@ export interface LeagueDefinition {
 
 /** Universo V1: ligas con histórico/alias/smoke validados y una liga en observación. */
 export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
+  {
+    code: 'EUROPA_LEAGUE',
+    leagueId: 3,
+    country: 'World',
+    canonicalName: 'UEFA Europa League',
+    status: 'OBSERVATION_ONLY',
+    cohortId: null,
+    modelVersion: null,
+    historicalDataset: null,
+    heartbeatLabel: '🏆 Europa League',
+  },
   {
     code: 'PREMIER_LEAGUE',
     leagueId: PROTOCOL_LEAGUE_ID,

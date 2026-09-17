@@ -38,10 +38,14 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     const observationOnly = LEAGUE_UNIVERSE.filter(
       (league) => league.status === 'OBSERVATION_ONLY',
     );
-    expect(observationOnly).toHaveLength(1);
+    expect(observationOnly).toHaveLength(2);
+    expect(observationOnly.map((league) => league.leagueId)).toEqual([3, 239]);
   });
 
   it('Europa habilitada y Colombia en observación', () => {
+    expect(resolveLeagueStatus(fixture({ leagueId: 3, country: 'World' }))).toBe(
+      'OBSERVATION_ONLY',
+    );
     expect(resolveLeagueStatus(fixture({ leagueId: 239, country: 'Colombia' }))).toBe(
       'OBSERVATION_ONLY',
     );
@@ -107,6 +111,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     ];
     const summary = summarizeFixturesByLeague(fixtures);
     expect(summary.map((entry) => entry.canonicalName)).toEqual([
+      'UEFA Europa League',
       'Premier League',
       'Liga BetPlay',
       'LaLiga',
@@ -118,9 +123,10 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Belgian Pro League',
       'Major League Soccer',
     ]);
-    expect(summary[0]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
-    expect(summary[1]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });
-    expect(summary[2]?.fixturesDetected).toBe(0);
+    expect(summary[0]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 0 });
+    expect(summary[1]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });
+    expect(summary[2]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 2 });
+    expect(summary[3]?.fixturesDetected).toBe(0);
     const total = summary.reduce((sum, entry) => sum + entry.fixturesDetected, 0);
     expect(total).toBe(3);
   });

@@ -20,9 +20,22 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
         awayLambda REAL NOT NULL, expectedGoals REAL NOT NULL, probabilityOver25 REAL NOT NULL,
         probabilityUnder25 REAL NOT NULL, modelSelection TEXT, marketOdds REAL,
         fairMarketProbability REAL, edge REAL, ev REAL, decision TEXT NOT NULL,
-        reason TEXT, PRIMARY KEY (cohortId, fixtureId, snapshotType)
+        reason TEXT, modelMode TEXT NOT NULL DEFAULT 'DOMESTIC',
+        homeDomesticLeague TEXT, awayDomesticLeague TEXT,
+        PRIMARY KEY (cohortId, fixtureId, snapshotType)
       );
     `);
+    for (const column of [
+      "modelMode TEXT NOT NULL DEFAULT 'DOMESTIC'",
+      'homeDomesticLeague TEXT',
+      'awayDomesticLeague TEXT',
+    ]) {
+      try {
+        this.db.exec(`ALTER TABLE model_analyses ADD COLUMN ${column}`);
+      } catch {
+        // La columna ya existe en una base creada por una versión anterior.
+      }
+    }
   }
 
   saveModelAnalysis(analysis: ModelAnalysis): void {
@@ -33,13 +46,15 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
       INSERT INTO model_analyses
         (cohortId, fixtureId, snapshotType, snapshotAt, league, homeTeam, awayTeam, kickoff,
          homeLambda, awayLambda, expectedGoals, probabilityOver25, probabilityUnder25,
-         modelSelection, decision, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         modelSelection, decision, reason, modelMode, homeDomesticLeague, awayDomesticLeague)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(cohortId, fixtureId, snapshotType) DO UPDATE SET
         snapshotAt=excluded.snapshotAt, homeLambda=excluded.homeLambda, awayLambda=excluded.awayLambda,
         expectedGoals=excluded.expectedGoals, probabilityOver25=excluded.probabilityOver25,
         probabilityUnder25=excluded.probabilityUnder25, modelSelection=excluded.modelSelection,
-        decision=excluded.decision, reason=excluded.reason
+        decision=excluded.decision, reason=excluded.reason,
+        modelMode=excluded.modelMode, homeDomesticLeague=excluded.homeDomesticLeague,
+        awayDomesticLeague=excluded.awayDomesticLeague
     `,
       )
       .run(
@@ -59,6 +74,9 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
         analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
         analysis.decision,
         analysis.reason ?? null,
+        analysis.modelMode ?? 'DOMESTIC',
+        analysis.homeDomesticLeague ?? null,
+        analysis.awayDomesticLeague ?? null,
       );
   }
 

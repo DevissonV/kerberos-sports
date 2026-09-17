@@ -7,6 +7,7 @@ export interface RefinementHeartbeatLeague {
   leagueId: number;
   status: LeagueStatus;
   fixturesDetected: number;
+  modelled?: number;
 }
 
 export interface RefinementHeartbeatRadarEntry {
@@ -20,6 +21,7 @@ export interface RefinementHeartbeatRadarEntry {
   kickoffAt?: Date;
   /** true solo cuando el estado real reporta cuotas faltantes (p. ej. reason NO_BOOKMAKER). */
   noOdds?: boolean;
+  experimental?: boolean;
 }
 
 export interface RefinementHeartbeatClosedEntry {
@@ -76,15 +78,18 @@ function radarSortKey(entry: RefinementHeartbeatRadarEntry): string {
 
 function formatRadarEntry(entry: RefinementHeartbeatRadarEntry, index: number): string[] {
   const status =
-    entry.noOdds === true
-      ? '👀 Preanálisis · Esperando cuotas'
-      : '👀 Preanálisis · Seguimiento activo';
+    entry.experimental === true
+      ? '🧪 Experimental interliga · Todavía no apostar'
+      : entry.noOdds === true
+        ? '👀 Preanálisis · Esperando cuotas'
+        : '👀 Preanálisis · Seguimiento activo';
   return [
     `${RADAR_NUMBER_EMOJI[index] ?? `${index + 1}.`} ${entry.home} vs ${entry.away}`,
     ...(entry.kickoffAt === undefined ? [] : [`📅 ${formatKickoffBogota(entry.kickoffAt)}`]),
     `${entry.marketEmoji ?? ''} ${entry.selection}`.trim(),
     `🧠 Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
     status,
+    ...(entry.experimental === true ? ['⚠️ Modelo interliga no habilitado para apostar.'] : []),
     ...(entry.shortHint === undefined ? [] : [`💡 ${entry.shortHint}`]),
   ];
 }
@@ -92,6 +97,9 @@ function formatRadarEntry(entry: RefinementHeartbeatRadarEntry, index: number): 
 export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): string {
   const hasError = input.error !== undefined || input.counters.errors > 0;
   const totalDetected = input.byLeague.reduce((sum, league) => sum + league.fixturesDetected, 0);
+  const europa = input.byLeague.find((league) => league.leagueId === 3);
+  const europaDetected = europa?.fixturesDetected ?? 0;
+  const europaModelled = europa?.modelled ?? 0;
 
   const lines = [
     '⚽ KERBEROS SPORTS',
@@ -121,6 +129,16 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     `NO_BET: ${input.noBets ?? 0}`,
     `Sin odds: ${input.oddsUnavailable ?? 0}`,
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
+    ...(europaDetected > 0
+      ? [
+          '',
+          `Europa League hoy: ${europaDetected}`,
+          `Europa preanalizados: ${europaModelled}`,
+          `Europa experimental: ${europaModelled}`,
+          `Europa datos insuficientes: ${Math.max(0, europaDetected - europaModelled)}`,
+          'Europa apuestas ejecutables: 0',
+        ]
+      : []),
   ];
 
   const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar : [];

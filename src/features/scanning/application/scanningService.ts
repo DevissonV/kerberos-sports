@@ -20,6 +20,7 @@ import {
 } from '../domain/leagueUniverse';
 import type { LeagueFixtureCount } from '../domain/leagueUniverse';
 import type { Fixture } from '../domain/concepts';
+import { findLeagueDefinition } from '../domain/leagueUniverse';
 
 export interface PrecheckFixture {
   fixture: Fixture;
@@ -42,6 +43,8 @@ export interface PrecheckOutput {
   decisionWindowFixtures: PrecheckFixture[];
   /** Fixtures futuros en horizonte de preanálisis T-24h..kickoff. */
   preAnalysisFixtures: PrecheckFixture[];
+  /** Fixtures de Europa League que pasan a auditoría interliga experimental. */
+  experimentalPreAnalysisFixtures: PrecheckFixture[];
   /** Desglose por liga del universo V1, en orden fijo. */
   byLeague: LeagueFixtureCount[];
 }
@@ -86,6 +89,18 @@ export class ScanningService {
         entry.fixture.kickoffAt.getTime() > now.getTime() &&
         entry.fixture.kickoffAt.getTime() <= horizonEnd,
     );
+    const experimentalPreAnalysisFixtures = raw
+      .filter((fixture) => findLeagueDefinition(fixture)?.code === 'EUROPA_LEAGUE')
+      .map((fixture) => ({
+        fixture,
+        decisionAt: decisionAtFromKickoff(fixture.kickoffAt),
+        needsSnapshot: false,
+      }))
+      .filter(
+        (entry) =>
+          entry.fixture.kickoffAt.getTime() > now.getTime() - 24 * 60 * 60 * 1000 &&
+          entry.fixture.kickoffAt.getTime() <= horizonEnd,
+      );
     return {
       rawFixtures: raw.length,
       rawFixtureList: raw,
@@ -96,6 +111,7 @@ export class ScanningService {
       observationFixtures,
       decisionWindowFixtures: fixtures.filter((entry) => entry.needsSnapshot),
       preAnalysisFixtures,
+      experimentalPreAnalysisFixtures,
       byLeague: summarizeFixturesByLeague(raw),
     };
   }

@@ -12,6 +12,9 @@ export interface ModelAnalysis {
   model: PoissonModelOutput;
   decision: 'PREANALYSIS';
   reason?: 'INSUFFICIENT_DATA';
+  modelMode?: 'DOMESTIC' | 'CROSS_LEAGUE_EXPERIMENTAL';
+  homeDomesticLeague?: string | null;
+  awayDomesticLeague?: string | null;
 }
 
 export interface ModelAnalysisOutput {

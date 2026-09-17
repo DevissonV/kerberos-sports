@@ -25,6 +25,11 @@ import {
 } from '../../scanning/domain/todayFirst';
 import type { Fixture } from '../../scanning/domain/concepts';
 import { classifyTodayFixtures } from '../../scanning/domain/todayFunnel';
+import {
+  auditEuropaFixture,
+  computeEuropaExperimentalModel,
+} from '../../scanning/domain/europaCoverage';
+import { LEAGUE_UNIVERSE } from '../../scanning/domain/leagueUniverse';
 
 export interface RefinementLeagueSummary {
   leagueId: number;
@@ -314,6 +319,7 @@ export class RefinementService {
       marketEmoji: string;
       probability: number;
       kickoffAt: Date;
+      experimental: boolean;
     }[] = [];
     try {
       const settlement = await this.settlement.settleOpenBets();
@@ -343,12 +349,42 @@ export class RefinementService {
         (fixture) => historicalMatchesForLeague(fixture.leagueId ?? -1, fixture.country ?? ''),
         now,
       );
+      const domesticSources = LEAGUE_UNIVERSE.filter(
+        (league) => league.status === 'MODEL_ENABLED' && league.historicalDataset !== null,
+      ).map((league) => ({
+        league: league.canonicalName,
+        matches: historicalMatchesForLeague(league.leagueId, league.country),
+      }));
+      const experimentalAnalyses = (precheck.experimentalPreAnalysisFixtures ?? [])
+        .map((entry) => auditEuropaFixture(entry.fixture, domesticSources, now))
+        .map((coverage) => {
+          const model = computeEuropaExperimentalModel(coverage, now);
+          return model === null
+            ? null
+            : {
+                fixture: coverage.fixture,
+                snapshotAt: now,
+                snapshotType: 'PREANALYSIS' as const,
+                model,
+                decision: 'PREANALYSIS' as const,
+                modelMode: 'CROSS_LEAGUE_EXPERIMENTAL' as const,
+                homeDomesticLeague: coverage.home.domesticLeague,
+                awayDomesticLeague: coverage.away.domesticLeague,
+              };
+        })
+        .filter((analysis): analysis is NonNullable<typeof analysis> => analysis !== null);
       for (const analysis of modelAnalysis.analyses)
         this.modelAnalysisStore.saveModelAnalysis(analysis);
-      tick.preAnalysisCount = modelAnalysis.analyses.length;
-      tick.modelledFixtures = modelAnalysis.analyses.length;
-      tick.insufficientData = modelAnalysis.insufficientData;
-      const radarEntries = modelAnalysis.analyses.map((analysis) => {
+      for (const analysis of experimentalAnalyses)
+        this.modelAnalysisStore.saveModelAnalysis(analysis);
+      const allAnalyses = [...modelAnalysis.analyses, ...experimentalAnalyses];
+      tick.preAnalysisCount = allAnalyses.length;
+      tick.modelledFixtures = tick.preAnalysisCount;
+      tick.insufficientData =
+        modelAnalysis.insufficientData +
+        (precheck.experimentalPreAnalysisFixtures?.length ?? 0) -
+        experimentalAnalyses.length;
+      const radarEntries = allAnalyses.map((analysis) => {
         const market = marketLanguage(
           analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
         );
@@ -362,6 +398,7 @@ export class RefinementService {
           marketEmoji: market.emoji,
           probability: Math.max(analysis.model.pOver, analysis.model.pUnder),
           kickoffAt: analysis.fixture.kickoffAt,
+          experimental: analysis.fixture.leagueId === 3,
         };
       });
       const radarSelection = selectTodayFirst(radarEntries, now);
@@ -369,7 +406,7 @@ export class RefinementService {
       tick.radarTodayShown = radarSelection.today.length;
       tick.radarUpcomingShown = radarSelection.upcoming.length;
       const todayDate = calendarDateInBogota(now);
-      const todayPreanalysis = modelAnalysis.analyses.filter(
+      const todayPreanalysis = allAnalyses.filter(
         (analysis) => calendarDateInBogota(analysis.fixture.kickoffAt) === todayDate,
       );
       const todayFunnel = classifyTodayFixtures(
@@ -392,7 +429,7 @@ export class RefinementService {
       tick.todayMarketWindow = precheck.decisionWindowFixtures.filter(
         (entry) => calendarDateInBogota(entry.fixture.kickoffAt) === todayDate,
       ).length;
-      tick.upcomingPreanalysis = modelAnalysis.analyses.length - todayPreanalysis.length;
+      tick.upcomingPreanalysis = allAnalyses.length - todayPreanalysis.length;
       tick.todayModelled = todayPreanalysis.length;
       tick.upcomingModelled = tick.upcomingPreanalysis;
       tick.todayExclusions = todayFunnel.rejectionBreakdown;
@@ -406,9 +443,8 @@ export class RefinementService {
         inDecisionWindow: precheck.decisionWindowFixtures.filter(
           (candidate) => candidate.fixture.leagueId === entry.leagueId,
         ).length,
-        modelled: modelAnalysis.analyses.filter(
-          (analysis) => analysis.fixture.leagueId === entry.leagueId,
-        ).length,
+        modelled: allAnalyses.filter((analysis) => analysis.fixture.leagueId === entry.leagueId)
+          .length,
         oddsRequested: 0,
         quantCandidates: 0,
         paperBets: 0,
@@ -451,7 +487,7 @@ export class RefinementService {
         tick.fullOddsScans = 1;
         tick.poissonModeled = result.result.poissonModeled;
         const modelledFixtures = new Map<string, Fixture>();
-        for (const analysis of modelAnalysis.analyses)
+        for (const analysis of allAnalyses)
           modelledFixtures.set(analysis.fixture.id, analysis.fixture);
         for (const analysis of result.result.analyses ?? [])
           modelledFixtures.set(analysis.fixture.id, analysis.fixture);
@@ -538,6 +574,7 @@ export class RefinementService {
               leagueId: entry.leagueId,
               status: entry.status,
               fixturesDetected: entry.fixturesDetected,
+              modelled: entry.modelled,
             })),
             counters: countersForHeartbeat(tick),
             openBets: tick.openPaperBets,
@@ -553,7 +590,7 @@ export class RefinementService {
             preAnalysisCount: tick.preAnalysisCount,
             marketAnalyzed: tick.marketAnalyzed,
             noOdds: tick.noOdds,
-            radar,
+            radar: radar.map((entry) => ({ ...entry, experimental: entry.experimental })),
             closedFollowups: this.closedFollowups(now, radar),
             todayRawFixtures: tick.todayRawFixtures,
             todayModelEnabled: tick.todayModelEnabled,
@@ -625,6 +662,7 @@ function enrichLeagueSummaries(
       (entry) => entry.fixture.leagueId === summary.leagueId,
     );
     const rawAnalyses = result.result.analyses;
+    if (summary.leagueId === 3) return summary;
     if (rawAnalyses === undefined) {
       return {
         ...summary,
