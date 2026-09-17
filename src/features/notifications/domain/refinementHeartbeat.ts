@@ -1,6 +1,7 @@
 import type { RefinementCounters } from '../../quant/ports/refinementStore';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { formatKickoffBogota } from './formatKickoff';
+import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 
 export interface RefinementHeartbeatLeague {
   leagueId: number;
@@ -36,6 +37,12 @@ export interface RefinementHeartbeatInput {
   noBets?: number;
   insufficientData?: number;
   oddsUnavailable?: number;
+  todayRawFixtures?: number;
+  todayModelEnabled?: number;
+  todayPreanalysis?: number;
+  upcomingPreanalysis?: number;
+  radarTodayShown?: number;
+  radarUpcomingShown?: number;
   budgetBlocked?: number;
   budgetProvider?: string;
   budgetResetAt?: string;
@@ -78,23 +85,54 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     '',
     `Modelados: ${input.fixturesModelled ?? 0}`,
     `Con mercado evaluado: ${input.marketAnalyzed ?? 0}`,
+    `Hoy detectados: ${input.todayRawFixtures ?? 0}`,
+    `Hoy modelables: ${input.todayModelEnabled ?? 0}`,
+    `Hoy preanalizados: ${input.todayPreanalysis ?? 0}`,
+    `Próximos preanalizados: ${input.upcomingPreanalysis ?? 0}`,
     `NO_BET: ${input.noBets ?? 0}`,
     `Sin odds: ${input.oddsUnavailable ?? 0}`,
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
   ];
 
-  const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar.slice(0, 3) : [];
+  const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar : [];
   if (radar.length > 0) {
-    const ordered = [...radar].sort((a, b) => {
-      const kickoffDiff = (a.kickoffAt?.getTime() ?? 0) - (b.kickoffAt?.getTime() ?? 0);
-      return kickoffDiff !== 0 ? kickoffDiff : radarSortKey(a).localeCompare(radarSortKey(b));
-    });
-    lines.push('', '🔥 PARTIDOS A SEGUIR', '');
-    ordered.forEach((entry, index) => {
-      if (index > 0) lines.push('─────────────', '');
-      lines.push(...formatRadarEntry(entry, index));
-      if (index < ordered.length - 1) lines.push('');
-    });
+    const todayDate = calendarDateInBogota(input.now);
+    const today = radar.filter(
+      (entry) =>
+        entry.kickoffAt !== undefined && calendarDateInBogota(entry.kickoffAt) === todayDate,
+    );
+    const upcoming = radar
+      .filter((entry) => !today.includes(entry))
+      .sort((a, b) => {
+        const kickoffDiff = (a.kickoffAt?.getTime() ?? 0) - (b.kickoffAt?.getTime() ?? 0);
+        return kickoffDiff !== 0 ? kickoffDiff : radarSortKey(a).localeCompare(radarSortKey(b));
+      });
+    const renderSection = (
+      title: string,
+      entries: RefinementHeartbeatRadarEntry[],
+      offset: number,
+    ) => {
+      lines.push('', title, '');
+      entries.forEach((entry, index) => {
+        if (index > 0) lines.push('─────────────', '');
+        lines.push(...formatRadarEntry(entry, offset + index));
+      });
+    };
+    if (today.length > 0) {
+      renderSection('🔥 PARTIDOS DE HOY', today, 0);
+      if ((input.todayPreanalysis ?? 0) > today.length)
+        lines.push(
+          '',
+          `📌 Hay ${(input.todayPreanalysis ?? 0) - today.length} partidos adicionales de hoy en seguimiento.`,
+        );
+    }
+    if (upcoming.length > 0) {
+      renderSection(
+        today.length > 0 ? '📆 PRÓXIMOS' : '🔥 PARTIDOS A SEGUIR',
+        upcoming,
+        today.length,
+      );
+    }
   }
 
   lines.push('', hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando');

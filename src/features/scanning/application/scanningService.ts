@@ -29,6 +29,7 @@ export interface PrecheckFixture {
 
 export interface PrecheckOutput {
   rawFixtures: number;
+  rawFixtureList: readonly Fixture[];
   /** Fixtures que pertenecen a una liga soportada por el universo observable. */
   supportedLeagueFixtures?: number;
   /** Fixtures con modelo habilitado (hoy: Premier League, cohorte KSS-V1-C01). */
@@ -87,6 +88,7 @@ export class ScanningService {
     );
     return {
       rawFixtures: raw.length,
+      rawFixtureList: raw,
       supportedLeagueFixtures: raw.filter((fixture) => resolveLeagueStatus(fixture) !== 'EXCLUDED')
         .length,
       fixtures,
