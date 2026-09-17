@@ -1,5 +1,6 @@
 import { formatQuantAnalysisMessage } from './quantAnalysisMessage';
 import type { QuantFixtureAnalysis } from '../../quant/application/quantPipeline';
+import type { AnalystOutput } from '../../llm-analyst/domain/contracts';
 
 const analysis: QuantFixtureAnalysis = {
   fixture: {
@@ -74,6 +75,25 @@ it('muestra preview como no ejecutable', () => {
   const message = formatQuantAnalysisMessage({ ...analysis, decision: 'BET' });
   expect(message).toContain('👀 PREANÁLISIS — NO APOSTAR TODAVÍA');
   expect(message).toContain('Stake: NO DISPONIBLE');
+});
+
+it('renderiza contexto sin darle autoridad de apuesta', () => {
+  const context: AnalystOutput = {
+    fixtureId: '1',
+    contextScore: 80,
+    priority: 'HIGH',
+    alerts: ['lesión por verificar'],
+    supportingFactors: ['ritmo reciente'],
+    contradictingFactors: [],
+    suggestedMarketsToInvestigate: ['BTTS'],
+    summary: 'Revisar',
+    confidenceInContext: 'MEDIUM',
+  };
+  const message = formatQuantAnalysisMessage(analysis, context);
+  expect(message).toContain('🧠 CONTEXTO KERBEROS');
+  expect(message).toContain('Prioridad contextual: HIGH');
+  expect(message).toContain('no modifica la probabilidad matemática ni el stake');
+  expect(message).not.toContain('finalBetDecision');
 });
 
 it('no llama cuota demasiado baja cuando la cuota supera la mínima', () => {

@@ -20,6 +20,9 @@ export interface AppConfig {
   openAiCompatibleApiKey?: string;
   openAiCompatibleModel: string;
   openAiCompatibleBaseUrl: string;
+  llmAnalystEnabled: boolean;
+  llmAnalystModel: string;
+  maxLlmAnalysesPerTick: number;
   /** Token del bot de Telegram de Kerberos SPORTS (independiente de Crypto). */
   telegramBotToken?: string;
   /** Chat ID de destino de las notificaciones de Kerberos SPORTS. */
@@ -81,6 +84,9 @@ export function createConfig(): AppConfig {
     openAiCompatibleModel: optionalEnv('OPENAI_COMPATIBLE_MODEL') ?? 'gpt-5.6-luna',
     openAiCompatibleBaseUrl:
       optionalEnv('OPENAI_COMPATIBLE_BASE_URL') ?? 'https://api.openai.com/v1',
+    llmAnalystEnabled: process.env.LLM_ANALYST_ENABLED === 'true',
+    llmAnalystModel: optionalEnv('LLM_ANALYST_MODEL') ?? 'gpt-5-mini',
+    maxLlmAnalysesPerTick: Number(process.env.MAX_LLM_ANALYSES_PER_TICK ?? 5),
     telegramBotToken: optionalEnv('TELEGRAM_BOT_TOKEN'),
     telegramChatId: optionalEnv('TELEGRAM_CHAT_ID'),
     paperBetsDbPath: optionalEnv('PAPER_BETS_DB_PATH') ?? 'data/kerberos-sports.db',

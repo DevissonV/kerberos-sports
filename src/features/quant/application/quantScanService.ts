@@ -30,6 +30,9 @@ import { formatQuantPaperMessageFor } from './quantRiskMessage';
 import { MODEL_ANALYSIS_STORE } from '../ports/modelAnalysisStore';
 import type { ModelAnalysisStore } from '../ports/modelAnalysisStore';
 import { SqliteModelAnalysisStore } from '../adapters/sqliteModelAnalysisStore';
+import { AnalystService } from '../../llm-analyst/application/analystService';
+import type { AnalystRunResult } from '../../llm-analyst/application/analystService';
+import { config } from '../../../shared/config/configuration';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -39,6 +42,7 @@ export interface QuantScanSummary {
   telegramSent: number;
   analysisMessagesSent: number;
   luna: Awaited<ReturnType<LunaShadowService['evaluate']>>;
+  analyst: AnalystRunResult;
 }
 
 @Injectable()
@@ -50,6 +54,7 @@ export class QuantScanService {
     private readonly lunaShadow: LunaShadowService,
     private readonly productionRisk: ProductionRiskService,
     private readonly manualLedger: ManualLedgerService,
+    private readonly analyst: AnalystService,
     @Optional()
     @Inject(MODEL_ANALYSIS_STORE)
     private readonly modelAnalysisStore: ModelAnalysisStore = new SqliteModelAnalysisStore(
@@ -98,6 +103,18 @@ export class QuantScanService {
       findExistingBet: (key) => this.paperBetStore.findByIdempotencyKey(key),
       modelByFixture,
     });
+    const analyst = await this.analyst.analyze(result.analyses, now, {
+      enabled: config.llmAnalystEnabled,
+      maxAnalyses: config.maxLlmAnalysesPerTick,
+    });
+    if (!config.llmAnalystEnabled) {
+      logger.info('LLM_SKIPPED', { reason: 'FEATURE_DISABLED', count: analyst.skipped });
+    }
+    const contextByFixture = new Map(
+      analyst.records
+        .filter((record) => record.output !== null)
+        .map((record) => [record.fixtureId, record.output!]),
+    );
     const luna = await this.lunaShadow.evaluate(result, now);
     const flush = await flushQuantBets({
       prepared: result.prepared,
@@ -120,13 +137,18 @@ export class QuantScanService {
     let analysisMessagesSent = 0;
     for (const analysis of result.analyses) {
       this.modelAnalysisStore.saveMarketAnalysis(analysis);
+      logger.info('MARKET_ANALYSIS_STARTED', {
+        fixtureId: analysis.fixture.id,
+        fixture: `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+        timestamp: now.toISOString(),
+      });
       const prepared = result.prepared.find(
         (entry) => entry.bet.fixtureId === Number(analysis.fixture.id),
       );
       const message =
         analysis.decision === 'BET' && prepared !== undefined
           ? this.actionableMessage(prepared.bet, now)
-          : formatQuantAnalysisMessage(analysis);
+          : formatQuantAnalysisMessage(analysis, contextByFixture.get(analysis.fixture.id));
       let telegramSent = false;
       if (message !== null) {
         try {
@@ -181,6 +203,7 @@ export class QuantScanService {
       telegramSent: flush.telegramSent,
       analysisMessagesSent,
       luna,
+      analyst,
     };
   }
 

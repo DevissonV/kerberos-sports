@@ -65,5 +65,14 @@ export function renderQuantRun(summary: QuantScanSummary): string {
   lines.push(`LUNA_ERRORS: ${summary.luna.providerErrors + summary.luna.timeouts}`);
   lines.push(`LUNA_INPUT_TOKENS: ${summary.luna.inputTokens}`);
   lines.push(`LUNA_OUTPUT_TOKENS: ${summary.luna.outputTokens}`);
+  lines.push('');
+  lines.push('LLM ANALYST:');
+  lines.push(`LLM_SELECTED: ${summary.analyst.selected}`);
+  lines.push(`LLM_EVALUATED: ${summary.analyst.evaluated}`);
+  lines.push(`LLM_CACHE_HITS: ${summary.analyst.cacheHits}`);
+  lines.push(`LLM_SKIPPED: ${summary.analyst.skipped}`);
+  lines.push(`LLM_FAILURES: ${summary.analyst.failures}`);
+  lines.push(`LLM_INPUT_TOKENS: ${summary.analyst.inputTokens}`);
+  lines.push(`LLM_OUTPUT_TOKENS: ${summary.analyst.outputTokens}`);
   return lines.join('\n');
 }
