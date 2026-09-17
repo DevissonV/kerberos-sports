@@ -24,6 +24,8 @@ import { REFINEMENT_STORE } from './ports/refinementStore';
 import { SettlementModule } from '../settlement/settlement.module';
 import { ProductionRiskModule } from '../production-risk/production-risk.module';
 import { ManualLedgerModule } from '../manual-ledger/manual-ledger.module';
+import { MODEL_ANALYSIS_STORE } from './ports/modelAnalysisStore';
+import { SqliteModelAnalysisStore } from './adapters/sqliteModelAnalysisStore';
 
 /**
  * Módulo standalone de batch (cli/scan.ts): declara su propio ConfigModule porque no
@@ -53,6 +55,14 @@ import { ManualLedgerModule } from '../manual-ledger/manual-ledger.module';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService<AppConfig>) =>
         new SqliteRefinementStore(
+          cfg.get('paperBetsDbPath', { infer: true }) ?? 'data/kerberos-sports.db',
+        ),
+    },
+    {
+      provide: MODEL_ANALYSIS_STORE,
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService<AppConfig>) =>
+        new SqliteModelAnalysisStore(
           cfg.get('paperBetsDbPath', { infer: true }) ?? 'data/kerberos-sports.db',
         ),
     },

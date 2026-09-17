@@ -14,6 +14,10 @@ export interface RefinementHeartbeatInput {
   counters: RefinementCounters;
   openBets: number;
   fixturesModelled?: number;
+  preAnalysisCount?: number;
+  marketAnalyzed?: number;
+  noOdds?: number;
+  radar?: readonly { home: string; away: string; selection: string; probability: number }[];
   bets?: number;
   noBets?: number;
   insufficientData?: number;
@@ -34,13 +38,23 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     hasError ? '⚠️ Revisión completada con una incidencia' : '✅ Revisión completada',
     '',
     `Partidos detectados: ${totalDetected}`,
-    `Analizados: ${input.fixturesModelled ?? 0}`,
+    `Modelados: ${input.fixturesModelled ?? 0}`,
+    `Preanálisis: ${input.preAnalysisCount ?? 0}`,
+    `Con mercado evaluado: ${input.marketAnalyzed ?? 0}`,
     `BET: ${input.bets ?? 0}`,
     `NO_BET: ${input.noBets ?? 0}`,
     `Sin odds: ${input.oddsUnavailable ?? 0}`,
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
     hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando',
   ];
+  if (input.radar !== undefined && input.radar.length > 0) {
+    lines.push('', '🔥 PARTIDOS A SEGUIR', 'Preanálisis — todavía no ejecutar.');
+    for (const entry of input.radar.slice(0, 3))
+      lines.push(
+        `${entry.home} vs ${entry.away}`,
+        `${entry.selection} — Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
+      );
+  }
   if (input.budgetBlocked !== undefined && input.budgetBlocked > 0) {
     lines.splice(3, 0, '⚠️ Análisis parcial');
     lines.splice(7, 0, `Pendientes por límite API: ${input.budgetBlocked}`);

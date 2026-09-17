@@ -79,4 +79,12 @@ describe('ScanningService.precheck: universo multiliga (KSS-LEAGUE-UNIVERSE-01)'
     const output = await service.precheck(20, NOW_AT_DECISION_WINDOW);
     expect(output.decisionWindowFixtures).toHaveLength(1);
   });
+
+  it('incluye en preanálisis un fixture T-24 sin llevarlo todavía al mercado', async () => {
+    const future = fixture('future', 39, 'England', 'Premier League');
+    future.kickoffAt = new Date(NOW_AT_DECISION_WINDOW.getTime() + 18 * 60 * 60 * 1000);
+    const output = await makeService([future]).precheck(20, NOW_AT_DECISION_WINDOW);
+    expect(output.preAnalysisFixtures).toHaveLength(1);
+    expect(output.decisionWindowFixtures).toHaveLength(0);
+  });
 });

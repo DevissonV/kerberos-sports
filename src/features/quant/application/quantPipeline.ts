@@ -59,6 +59,8 @@ export interface QuantPipelineDeps {
   settledPnlSum: number;
   /** Idempotencia: busca una PaperBet previa por identidad durable (null si no existe). */
   findExistingBet: (key: PaperBetKey) => PaperBet | null;
+  /** Reutiliza el snapshot de MODEL_ANALYSIS y evita recalcular Poisson. */
+  modelByFixture?: ReadonlyMap<string, PoissonModelOutput>;
 }
 
 export interface PreparedQuantBet {
@@ -69,6 +71,7 @@ export interface PreparedQuantBet {
 /** Evidencia de una decisión por fixture; `NO_BET` nunca genera una PaperBet. */
 export interface QuantFixtureAnalysis {
   fixture: Fixture;
+  snapshotAt?: Date;
   pair: OddsPair;
   model: PoissonModelOutput;
   side?: QuantSideEvaluation;
@@ -156,14 +159,17 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
       rejected.MODEL_DATA += 1;
       continue;
     }
-    const poisson = computePoissonV1({
-      fixtureId: candidate.fixture.id,
-      league: candidate.fixture.league,
-      home: candidate.fixture.homeTeam,
-      away: candidate.fixture.awayTeam,
-      snapshotAt: candidate.snapshotAt,
-      historicalMatches,
-    });
+    const poisson =
+      deps.modelByFixture?.get(candidate.fixture.id) !== undefined
+        ? { status: 'OK' as const, output: deps.modelByFixture.get(candidate.fixture.id)! }
+        : computePoissonV1({
+            fixtureId: candidate.fixture.id,
+            league: candidate.fixture.league,
+            home: candidate.fixture.homeTeam,
+            away: candidate.fixture.awayTeam,
+            snapshotAt: candidate.snapshotAt,
+            historicalMatches,
+          });
     if (poisson.status !== 'OK') {
       rejected.MODEL_DATA += 1;
       continue;
@@ -174,6 +180,7 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
       rejected[evaluation.reason] += 1;
       analyses.push({
         fixture: candidate.fixture,
+        snapshotAt: candidate.snapshotAt,
         pair,
         model: poisson.output,
         side: evaluation.side,
@@ -237,6 +244,7 @@ export function runQuantPipeline(deps: QuantPipelineDeps): QuantPipelineResult {
     const isBet = preparedFixtureIds.has(entry.candidate.fixture.id);
     analyses.push({
       fixture: entry.candidate.fixture,
+      snapshotAt: entry.candidate.snapshotAt,
       pair: entry.pair,
       model: entry.model,
       side: entry.side,

@@ -39,6 +39,8 @@ export interface PrecheckOutput {
   observationFixtures: number;
   /** Solo fixtures con modelo habilitado en ventana T-6h: los únicos que disparan odds/QUANT. */
   decisionWindowFixtures: PrecheckFixture[];
+  /** Fixtures futuros en horizonte de preanálisis T-24h..kickoff. */
+  preAnalysisFixtures: PrecheckFixture[];
   /** Desglose por liga del universo V1, en orden fijo. */
   byLeague: LeagueFixtureCount[];
 }
@@ -77,6 +79,12 @@ export class ScanningService {
     const observationFixtures = raw.filter(
       (fixture) => resolveLeagueStatus(fixture) === 'OBSERVATION_ONLY',
     ).length;
+    const horizonEnd = now.getTime() + 24 * 60 * 60 * 1000;
+    const preAnalysisFixtures = fixtures.filter(
+      (entry) =>
+        entry.fixture.kickoffAt.getTime() > now.getTime() &&
+        entry.fixture.kickoffAt.getTime() <= horizonEnd,
+    );
     return {
       rawFixtures: raw.length,
       supportedLeagueFixtures: raw.filter((fixture) => resolveLeagueStatus(fixture) !== 'EXCLUDED')
@@ -85,6 +93,7 @@ export class ScanningService {
       eligibleFixtures: fixtures.length,
       observationFixtures,
       decisionWindowFixtures: fixtures.filter((entry) => entry.needsSnapshot),
+      preAnalysisFixtures,
       byLeague: summarizeFixturesByLeague(raw),
     };
   }

@@ -16,6 +16,7 @@ import type { NotificationPort } from '../../notifications/ports/notificationPor
 import { loadLocalHistoricalMatches } from '../../poisson/adapters/localCsvHistoricalMatches';
 import { historicalMatchesForLeague } from '../../poisson/adapters/historicalLeagueRegistry';
 import type { HistoricalMatch } from '../../poisson/domain/concepts';
+import type { PoissonModelOutput } from '../../poisson/domain/concepts';
 import { INITIAL_BANKROLL } from '../domain/quantCandidate';
 import { logger } from '../../../shared/logging/logger';
 import { runQuantPipeline, type QuantPipelineResult } from './quantPipeline';
@@ -26,6 +27,9 @@ import type { Fixture } from '../../scanning/domain/concepts';
 import { ProductionRiskService } from '../../production-risk/application/productionRiskService';
 import { ManualLedgerService } from '../../manual-ledger/application/manualLedgerService';
 import { formatQuantPaperMessageFor } from './quantRiskMessage';
+import { MODEL_ANALYSIS_STORE } from '../ports/modelAnalysisStore';
+import type { ModelAnalysisStore } from '../ports/modelAnalysisStore';
+import { SqliteModelAnalysisStore } from '../adapters/sqliteModelAnalysisStore';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -46,6 +50,11 @@ export class QuantScanService {
     private readonly lunaShadow: LunaShadowService,
     private readonly productionRisk: ProductionRiskService,
     private readonly manualLedger: ManualLedgerService,
+    @Optional()
+    @Inject(MODEL_ANALYSIS_STORE)
+    private readonly modelAnalysisStore: ModelAnalysisStore = new SqliteModelAnalysisStore(
+      ':memory:',
+    ),
     /**
      * Histórico causal para Poisson (inyectable para tests deterministas); sin
      * proveedor Nest se usa el histórico local versionado por defecto.
@@ -72,6 +81,11 @@ export class QuantScanService {
     const loadHistorical = this.loadHistoricalMatches ?? loadLocalHistoricalMatches;
     const historicalMatches = loadHistorical();
     const bankroll = paperBankrollState(this.paperBetStore);
+    const modelByFixture = new Map<string, PoissonModelOutput>();
+    for (const candidate of scan.report.candidates) {
+      const model = this.modelAnalysisStore.findLatest(candidate.fixture.id, 'PREANALYSIS')?.model;
+      if (model !== undefined) modelByFixture.set(candidate.fixture.id, model);
+    }
     const result = runQuantPipeline({
       candidates: scan.report.candidates,
       historicalMatches,
@@ -82,6 +96,7 @@ export class QuantScanService {
       openStakesSum: bankroll.openStakesSum,
       settledPnlSum: bankroll.settledPnlSum,
       findExistingBet: (key) => this.paperBetStore.findByIdempotencyKey(key),
+      modelByFixture,
     });
     const luna = await this.lunaShadow.evaluate(result, now);
     const flush = await flushQuantBets({
@@ -104,6 +119,8 @@ export class QuantScanService {
     });
     let analysisMessagesSent = 0;
     for (const analysis of result.analyses) {
+      this.modelAnalysisStore.saveMarketAnalysis(analysis);
+      if (analysis.decision !== 'BET') continue;
       const prepared = result.prepared.find(
         (entry) => entry.bet.fixtureId === Number(analysis.fixture.id),
       );

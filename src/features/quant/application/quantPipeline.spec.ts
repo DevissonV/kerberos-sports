@@ -136,6 +136,15 @@ function modelOf(history: HistoricalMatch[], home = 'Arsenal', away = 'Chelsea')
 }
 
 describe('runQuantPipeline', () => {
+  it('reutiliza MODEL_ANALYSIS en MARKET_ANALYSIS sin recalcular ni requerir histórico', () => {
+    const model = modelOf(overHistory());
+    const result = runQuantPipeline(
+      deps({ historicalMatches: [], modelByFixture: new Map([['9001', model]]) }),
+    );
+    expect(result.poissonModeled).toBe(1);
+    expect(result.analyses[0]?.model).toBe(model);
+  });
+
   it('moduloPoison calculado: pUnder es P(total<=2) para lambdaTotal=3', () => {
     const model = modelOf(overHistory());
     // lambdaTotal = 3 exacto (medias 2/1 y fuerzas 1)
