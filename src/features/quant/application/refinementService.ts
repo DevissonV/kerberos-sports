@@ -130,7 +130,11 @@ export interface RefinementTickSummary {
   todayExclusions?: Record<string, number>;
   radarTodayShown?: number;
   radarUpcomingShown?: number;
+  nextT6FixtureId?: string;
   nextT6Fixture?: string;
+  nextT6League?: string;
+  nextT6KickoffBogota?: string;
+  nextT6HoursRemaining?: number;
   nextT6At?: string;
 }
 
@@ -396,10 +400,24 @@ export class RefinementService {
         logPreanalysisFixture(analysis.fixture, now);
       }
       const nextT6 = nextT6Fixture(precheck.preAnalysisFixtures ?? [], now);
+      tick.nextT6FixtureId = nextT6?.fixture.id;
       tick.nextT6Fixture = nextT6?.fixtureLabel;
+      tick.nextT6League = nextT6?.fixture.league;
+      tick.nextT6KickoffBogota = nextT6?.fixture.kickoffAt
+        ? formatKickoffBogota(nextT6.fixture.kickoffAt)
+        : undefined;
+      tick.nextT6HoursRemaining = nextT6?.decisionAt
+        ? hoursUntilKickoff(nextT6.decisionAt, now)
+        : undefined;
       tick.nextT6At = nextT6?.decisionAt.toISOString();
       if (nextT6 !== undefined) {
-        logger.info('NEXT_T6_FIXTURE', { fixture: nextT6.fixtureLabel });
+        logger.info('NEXT_T6_FIXTURE', {
+          fixtureId: nextT6.fixture.id,
+          league: nextT6.fixture.league,
+          fixture: nextT6.fixtureLabel,
+          kickoffAtBogota: formatKickoffBogota(nextT6.fixture.kickoffAt),
+          hoursRemaining: hoursUntilKickoff(nextT6.decisionAt, now),
+        });
         logger.info('NEXT_T6_AT', { nextT6At: nextT6.decisionAt.toISOString() });
       }
       tick.insufficientData =
@@ -508,8 +526,11 @@ export class RefinementService {
           if (entry.fixture.kickoffAt instanceof Date) {
             logger.info('T6_TRANSITION', {
               fixtureId: entry.fixture.id,
+              league: entry.fixture.league,
+              homeTeam: entry.fixture.homeTeam,
+              awayTeam: entry.fixture.awayTeam,
               fixture: fixtureLabel(entry.fixture),
-              kickoff: entry.fixture.kickoffAt.toISOString(),
+              kickoffAt: entry.fixture.kickoffAt.toISOString(),
               previousState: 'PREANALYSIS',
               newState: 'T6',
               timestamp: now.toISOString(),
@@ -517,8 +538,11 @@ export class RefinementService {
           }
           logger.info('MARKET_ANALYSIS_STARTED', {
             fixtureId: entry.fixture.id,
+            league: entry.fixture.league,
+            homeTeam: entry.fixture.homeTeam,
+            awayTeam: entry.fixture.awayTeam,
             fixture: fixtureLabel(entry.fixture),
-            kickoff:
+            kickoffAt:
               entry.fixture.kickoffAt instanceof Date
                 ? entry.fixture.kickoffAt.toISOString()
                 : null,
@@ -590,8 +614,20 @@ export class RefinementService {
           if (model !== undefined) {
             logger.info('MARKET_ANALYSIS_COMPLETED', {
               fixtureId: entry.fixture.id,
+              league: entry.fixture.league,
+              homeTeam: entry.fixture.homeTeam,
+              awayTeam: entry.fixture.awayTeam,
               fixture: fixtureLabel(entry.fixture),
-              status: 'NO_ODDS',
+              selection: model.pOver >= model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+              modelProbability: Math.max(model.pOver, model.pUnder),
+              observedOdds: null,
+              minimumAcceptableOdds: null,
+              edge: null,
+              ev: null,
+              decision: 'NO_ODDS',
+              reason: 'NO_BOOKMAKER',
+              riskDecision: null,
+              telegramSent: false,
               timestamp: now.toISOString(),
             });
             logFinalDecision({
@@ -777,15 +813,21 @@ export function logPreanalysisFixture(fixture: Fixture, now: Date): void {
 export function nextT6Fixture(
   entries: readonly { fixture: Fixture; decisionAt: Date }[],
   now: Date,
-): { fixtureLabel: string; decisionAt: Date } | undefined {
+): { fixture: Fixture; fixtureLabel: string; decisionAt: Date } | undefined {
   return entries
     .filter(
       (entry) =>
-        entry.fixture.kickoffAt instanceof Date &&
-        entry.fixture.kickoffAt.getTime() > now.getTime(),
+        entry.fixture.kickoffAt instanceof Date && entry.decisionAt.getTime() > now.getTime(),
     )
-    .sort((left, right) => left.fixture.kickoffAt.getTime() - right.fixture.kickoffAt.getTime())
+    .sort((left, right) => {
+      const decisionDiff = left.decisionAt.getTime() - right.decisionAt.getTime();
+      if (decisionDiff !== 0) return decisionDiff;
+      const kickoffDiff = left.fixture.kickoffAt.getTime() - right.fixture.kickoffAt.getTime();
+      if (kickoffDiff !== 0) return kickoffDiff;
+      return left.fixture.id.localeCompare(right.fixture.id);
+    })
     .map((entry) => ({
+      fixture: entry.fixture,
       fixtureLabel: fixtureLabel(entry.fixture),
       decisionAt: entry.decisionAt,
     }))[0];

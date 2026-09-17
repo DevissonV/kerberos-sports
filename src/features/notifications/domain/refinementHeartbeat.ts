@@ -4,6 +4,13 @@ import { formatKickoffBogota } from './formatKickoff';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { humanizeTechnicalStatus } from './technicalStatus';
 
+const T6_TIME_FORMATTER = new Intl.DateTimeFormat('es-CO', {
+  timeZone: 'America/Bogota',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
 export interface RefinementHeartbeatLeague {
   leagueId: number;
   status: LeagueStatus;
@@ -138,7 +145,8 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
       : [
           '',
           `⏭ Próxima evaluación de mercado:`,
-          `${input.nextT6Fixture} · ${formatKickoffBogota(input.nextT6At)}`,
+          `${input.nextT6Fixture}`,
+          `T-6: ${T6_TIME_FORMATTER.format(input.nextT6At)}`,
         ]),
     ...(europaDetected > 0
       ? [

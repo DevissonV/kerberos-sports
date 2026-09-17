@@ -142,8 +142,20 @@ export class QuantScanService {
       }
       logger.info('MARKET_ANALYSIS_COMPLETED', {
         fixtureId: analysis.fixture.id,
+        league: analysis.fixture.league,
+        homeTeam: analysis.fixture.homeTeam,
+        awayTeam: analysis.fixture.awayTeam,
         fixture: `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
-        status: analysis.decision,
+        selection: analysis.side?.selection ?? null,
+        modelProbability: analysis.side?.modelProbability ?? null,
+        observedOdds: analysis.side?.offeredOdds ?? null,
+        minimumAcceptableOdds: analysis.side?.minimumAcceptableOdds ?? null,
+        edge: analysis.side?.edge ?? null,
+        ev: analysis.side?.expectedValue ?? null,
+        decision: analysis.decision,
+        reason: analysis.reason ?? null,
+        riskDecision: analysis.reason === 'RISK' ? analysis.reason : null,
+        telegramSent,
         timestamp: now.toISOString(),
       });
       logger.info('FINAL_DECISION', {

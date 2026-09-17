@@ -10,11 +10,12 @@ Se añadió trazabilidad estructurada del flujo FOOTBALL de la cohorte `KSS-V1-C
 - `MARKET_ANALYSIS_STARTED` y `MARKET_ANALYSIS_COMPLETED` por fixture.
 - `FINAL_DECISION` con los campos de decisión y `telegramSent`.
 - `NEXT_T6_FIXTURE` y `NEXT_T6_AT` en cada tick; ambos reportan `NONE` cuando no hay
-  fixture futuro en preanálisis.
+  ingreso futuro a T-6. El selector ordena por `decisionAt` y desempata por kickoff e
+  identificador estable.
 
 Los eventos usan el logger compartido y no incluyen valores de secretos. Telegram conserva
-un único heartbeat por tick; el próximo T-6 se agrega allí de forma opcional, sin mensajes
-técnicos por fixture.
+un único heartbeat por tick; el próximo T-6 se agrega allí de forma opcional con una línea
+`T-6:`, sin mensajes técnicos por fixture.
 
 ## Invariantes verificadas
 

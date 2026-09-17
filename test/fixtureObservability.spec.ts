@@ -68,8 +68,17 @@ describe('observabilidad de fixtures', () => {
       NOW,
     );
     expect(closest).toMatchObject({
+      fixture: { id: 'later' },
       fixtureLabel: 'Arsenal vs Chelsea',
-      decisionAt: new Date('2026-09-15T08:30:00.000Z'),
+      decisionAt: new Date('2026-09-16T10:30:00.000Z'),
     });
+  });
+
+  it('resuelve empates de entrada a T-6 por fixtureId', () => {
+    const entries = ['zeta', 'alpha'].map((id) => ({
+      fixture: fixture(id, '2026-09-16T14:30:00.000Z'),
+      decisionAt: new Date('2026-09-16T08:30:00.000Z'),
+    }));
+    expect(nextT6Fixture(entries, NOW)?.fixture.id).toBe('alpha');
   });
 });

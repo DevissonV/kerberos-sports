@@ -64,6 +64,20 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).not.toContain('Oportunidades QUANT');
   });
 
+  it('muestra el próximo T-6 dentro del heartbeat único', () => {
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-15T08:30:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 1 }],
+      nextT6Fixture: 'Arsenal vs Chelsea',
+      nextT6At: new Date('2026-09-15T10:30:00Z'),
+      counters: BASE_COUNTERS,
+    });
+    expect(message).toContain('⏭ Próxima evaluación de mercado:');
+    expect(message).toContain('Arsenal vs Chelsea');
+    expect(message).toContain('T-6: 5:30 a. m.');
+  });
+
   it('cuenta partidos aunque pertenezcan a ligas en observación', () => {
     const message = formatRefinementHeartbeat({
       now: new Date('2026-09-15T12:00:00Z'),
