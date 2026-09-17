@@ -48,7 +48,7 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando',
   ];
   if (input.radar !== undefined && input.radar.length > 0) {
-    lines.push('', '🔥 PARTIDOS A SEGUIR', 'Preanálisis — todavía no ejecutar.');
+    lines.push('', '🔥 PARTIDOS A SEGUIR', '👀 Preanálisis — NO APOSTAR TODAVÍA');
     for (const entry of input.radar.slice(0, 3))
       lines.push(
         `${entry.home} vs ${entry.away}`,

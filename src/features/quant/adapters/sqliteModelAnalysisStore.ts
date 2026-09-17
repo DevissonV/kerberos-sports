@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import type { QuantFixtureAnalysis } from '../application/quantPipeline';
 import type { ModelAnalysisStore, StoredModelAnalysis } from '../ports/modelAnalysisStore';
 import type { ModelAnalysis } from '../domain/modelAnalysis';
+import { findLeagueDefinition } from '../../scanning/domain/leagueUniverse';
 
 export class SqliteModelAnalysisStore implements ModelAnalysisStore {
   private readonly db: Db;
@@ -25,6 +26,7 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
   }
 
   saveModelAnalysis(analysis: ModelAnalysis): void {
+    const cohortId = findLeagueDefinition(analysis.fixture)?.cohortId ?? 'KSS-V1-C01';
     this.db
       .prepare(
         `
@@ -41,7 +43,7 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
     `,
       )
       .run(
-        'KSS-V1-C01',
+        cohortId,
         analysis.fixture.id,
         analysis.snapshotType,
         (analysis.snapshotAt ?? analysis.model.snapshotAt).toISOString(),
@@ -54,13 +56,14 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
         analysis.model.lambdaTotal,
         analysis.model.pOver,
         analysis.model.pUnder,
-        null,
+        analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
         analysis.decision,
         analysis.reason ?? null,
       );
   }
 
   saveMarketAnalysis(analysis: QuantFixtureAnalysis): void {
+    const cohortId = findLeagueDefinition(analysis.fixture)?.cohortId ?? 'KSS-V1-C01';
     const side = analysis.side;
     this.db
       .prepare(
@@ -77,7 +80,7 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
     `,
       )
       .run(
-        'KSS-V1-C01',
+        cohortId,
         analysis.fixture.id,
         (analysis.snapshotAt ?? analysis.model.snapshotAt).toISOString(),
         analysis.fixture.league,
@@ -105,7 +108,7 @@ export class SqliteModelAnalysisStore implements ModelAnalysisStore {
   ): StoredModelAnalysis | null {
     const row = this.db
       .prepare(
-        `SELECT * FROM model_analyses WHERE cohortId='KSS-V1-C01' AND fixtureId=? ${snapshotType === undefined ? '' : 'AND snapshotType=?'} ORDER BY snapshotAt DESC LIMIT 1`,
+        `SELECT * FROM model_analyses WHERE fixtureId=? ${snapshotType === undefined ? '' : 'AND snapshotType=?'} ORDER BY snapshotAt DESC LIMIT 1`,
       )
       .get(...(snapshotType === undefined ? [fixtureId] : [fixtureId, snapshotType])) as
       Record<string, unknown> | undefined;

@@ -43,10 +43,13 @@ export interface RefinementTickSummary {
   tickId: string;
   precheckOnly: boolean;
   rawFixtures: number;
+  supportedFixtures?: number;
   supportedLeagueFixtures?: number;
   eligibleFixtures: number;
+  modelEnabledFixtures?: number;
   observationFixtures: number;
   decisionWindowFixtures: number;
+  preAnalysisEligible?: number;
   outsideDecisionWindow?: number;
   historyReady?: number;
   aliasesReady?: number;
@@ -56,7 +59,9 @@ export interface RefinementTickSummary {
   oddsAvailableFixtures?: number;
   analyzedFixtures?: number;
   marketAnalyzed?: number;
+  oddsAvailable?: number;
   noOdds?: number;
+  noBetCount?: number;
   budgetBlocked?: number;
   budgetGuardType?: string;
   budgetProvider?: string;
@@ -104,8 +109,11 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     '',
     `precheckOnly=${summary.precheckOnly}`,
     `rawFixtures=${summary.rawFixtures}`,
+    `RAW_FIXTURES=${summary.rawFixtures}`,
     `supportedLeagueFixtures=${summary.supportedLeagueFixtures ?? 0}`,
+    `SUPPORTED_FIXTURES=${summary.supportedFixtures ?? summary.supportedLeagueFixtures ?? 0}`,
     `eligibleFixtures=${summary.eligibleFixtures}`,
+    `MODEL_ENABLED_FIXTURES=${summary.modelEnabledFixtures ?? summary.eligibleFixtures}`,
     `observationFixtures=${summary.observationFixtures}`,
     `decisionWindowFixtures=${summary.decisionWindowFixtures}`,
     `outsideDecisionWindow=${summary.outsideDecisionWindow ?? 0}`,
@@ -113,8 +121,10 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `aliasesReady=${summary.aliasesReady ?? 0}`,
     `modelledFixtures=${summary.modelledFixtures ?? 0}`,
     `preAnalysisCount=${summary.preAnalysisCount ?? 0}`,
+    `PREANALYSIS_ELIGIBLE=${summary.preAnalysisEligible ?? 0}`,
     `oddsRequested=${summary.oddsRequested ?? 0}`,
     `oddsAvailableFixtures=${summary.oddsAvailableFixtures ?? 0}`,
+    `ODDS_AVAILABLE=${summary.oddsAvailable ?? summary.oddsAvailableFixtures ?? 0}`,
     `analyzedFixtures=${summary.analyzedFixtures ?? 0}`,
     `marketAnalyzed=${summary.marketAnalyzed ?? 0}`,
     `noOdds=${summary.noOdds ?? 0}`,
@@ -206,9 +216,12 @@ export class RefinementService {
       precheckOnly: true,
       rawFixtures: 0,
       supportedLeagueFixtures: 0,
+      supportedFixtures: 0,
       eligibleFixtures: 0,
+      modelEnabledFixtures: 0,
       observationFixtures: 0,
       decisionWindowFixtures: 0,
+      preAnalysisEligible: 0,
       outsideDecisionWindow: 0,
       historyReady: 0,
       aliasesReady: 0,
@@ -218,7 +231,9 @@ export class RefinementService {
       oddsAvailableFixtures: 0,
       analyzedFixtures: 0,
       marketAnalyzed: 0,
+      oddsAvailable: 0,
       noOdds: 0,
+      noBetCount: 0,
       budgetBlocked: 0,
       byLeague: [],
       fullOddsScans: 0,
@@ -263,9 +278,12 @@ export class RefinementService {
           precheck.byLeague
             .filter((entry) => entry.status === 'EXCLUDED')
             .reduce((sum, entry) => sum + entry.fixturesDetected, 0);
+      tick.supportedFixtures = tick.supportedLeagueFixtures;
       tick.eligibleFixtures = precheck.eligibleFixtures;
+      tick.modelEnabledFixtures = precheck.eligibleFixtures;
       tick.observationFixtures = precheck.observationFixtures;
       tick.decisionWindowFixtures = precheck.decisionWindowFixtures.length;
+      tick.preAnalysisEligible = precheck.preAnalysisFixtures?.length ?? 0;
       const modelAnalysis = runModelAnalysis(
         (precheck.preAnalysisFixtures ?? []).map((entry) => entry.fixture),
         (fixture) => historicalMatchesForLeague(fixture.leagueId ?? -1, fixture.country ?? ''),
@@ -331,11 +349,13 @@ export class RefinementService {
         tick.poissonModeled = result.result.poissonModeled;
         tick.modelledFixtures = Math.max(tick.modelledFixtures ?? 0, result.result.poissonModeled);
         tick.marketAnalyzed = result.result.analyses?.length ?? result.result.quantCandidates;
+        tick.oddsAvailable = result.scan?.report.candidatesNormalized ?? 0;
         tick.noOdds = result.result.rejected?.NO_BOOKMAKER ?? 0;
         tick.quantCandidates = result.result.quantCandidates;
         tick.paperBetsCreated = result.paperBetsCreated;
         tick.noBets =
           result.result.analyses?.filter((analysis) => analysis.decision === 'NO_BET').length ?? 0;
+        tick.noBetCount = tick.noBets;
         tick.insufficientData = result.result.rejected?.MODEL_DATA ?? 0;
         tick.oddsUnavailable = Math.max(
           0,

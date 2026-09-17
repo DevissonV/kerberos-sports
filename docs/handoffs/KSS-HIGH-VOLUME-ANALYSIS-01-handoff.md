@@ -20,6 +20,8 @@ a BET. No se cambiaron Poisson, MIN_EDGE, MIN_EV, stake, bookmakers, ejecución 
 - Horizonte de preanálisis T-24h..kickoff y ventana de mercado T-6h.
 - Métricas `preAnalysisCount`, `marketAnalyzed`, `noOdds` y radar por tick.
 - Telegram sin spam de NO_BET; resumen Radar y BET individual.
+- La persistencia deriva `modelCohort` de la liga y guarda `modelPreferredSide`.
+- El tick expone aliases de funnel en mayúsculas para consumo operativo.
 
 ## VALIDACIÓN
 
@@ -27,14 +29,17 @@ a BET. No se cambiaron Poisson, MIN_EDGE, MIN_EV, stake, bookmakers, ejecución 
 npm run validate: PASS
 TEST_FILES_OR_SUITES: 59
 TEST_CASES: 345
+BUILD: PASS
 ```
+
+El Radar muestra explícitamente `👀 Preanálisis — NO APOSTAR TODAVÍA`.
 
 ## CLOUD SMOKE
 
-Pendiente observar el primer ciclo real posterior al despliegue. Los campos esperados en
-`[KSS_REFINEMENT_TICK]` son `DISCOVERED_FIXTURES`, `MODEL_ENABLED_FIXTURES`,
-`modelledFixtures`, `preAnalysisCount`, `marketAnalyzed`, `BET_COUNT`, `NO_BET_COUNT`,
-`NO_ODDS_COUNT`, `oddsPapiRequests` y `fullOddsScans`, con desglose por liga.
+Pendiente observar el primer ciclo cron real posterior al despliegue. Los campos esperados en
+`[KSS_REFINEMENT_TICK]` son `RAW_FIXTURES`, `SUPPORTED_FIXTURES`, `MODEL_ENABLED_FIXTURES`,
+`modelledFixtures`, `PREANALYSIS_ELIGIBLE`, `preAnalysisCount`, `marketAnalyzed`, `BET_COUNT`,
+`NO_BET_COUNT`, `NO_ODDS_COUNT`, `oddsPapiRequests` y `fullOddsScans`, con desglose por liga.
 
 ```text
 RAW_FIXTURES: pendiente
@@ -60,4 +65,8 @@ liga alcance el mínimo del protocolo. No se debe elevar el límite OddsPapi sin
 
 ## NEXT_EXACT_STEP
 
-Esperar un ciclo cron real, leer el tick y el Telegram Radar, y registrar el desglose por liga.
+Desplegar `release`, esperar un ciclo cron real, leer el tick y el Telegram Radar, y registrar el
+desglose por liga. No implementar aún `KSS-LLM-ANALYST-LAYER-01`.
+
+NEXT_FEATURE:
+KSS-LLM-ANALYST-LAYER-01
