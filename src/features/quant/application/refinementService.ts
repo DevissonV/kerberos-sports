@@ -266,7 +266,10 @@ export class RefinementService {
       away: string;
       selection: string;
       explanation: string;
+      shortHint: string;
+      marketEmoji: string;
       probability: number;
+      kickoffAt: Date;
     }[] = [];
     try {
       const settlement = await this.settlement.settleOpenBets();
@@ -302,17 +305,21 @@ export class RefinementService {
       tick.modelledFixtures = modelAnalysis.analyses.length;
       tick.insufficientData = modelAnalysis.insufficientData;
       radar = modelAnalysis.analyses
-        .map((analysis) => ({
-          home: analysis.fixture.homeTeam,
-          away: analysis.fixture.awayTeam,
-          selection: marketLanguage(
+        .map((analysis) => {
+          const market = marketLanguage(
             analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
-          ).title,
-          explanation: marketLanguage(
-            analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
-          ).explanation,
-          probability: Math.max(analysis.model.pOver, analysis.model.pUnder),
-        }))
+          );
+          return {
+            home: analysis.fixture.homeTeam,
+            away: analysis.fixture.awayTeam,
+            selection: market.title,
+            explanation: market.explanation,
+            shortHint: market.shortHint,
+            marketEmoji: market.emoji,
+            probability: Math.max(analysis.model.pOver, analysis.model.pUnder),
+            kickoffAt: analysis.fixture.kickoffAt,
+          };
+        })
         .sort((a, b) => b.probability - a.probability);
       tick.outsideDecisionWindow = precheck.eligibleFixtures - tick.decisionWindowFixtures;
       tick.byLeague = precheck.byLeague.map((entry) => ({
