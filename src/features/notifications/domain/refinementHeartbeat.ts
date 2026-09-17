@@ -4,13 +4,6 @@ import { formatKickoffBogota } from './formatKickoff';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { humanizeTechnicalStatus } from './technicalStatus';
 
-const T6_TIME_FORMATTER = new Intl.DateTimeFormat('es-CO', {
-  timeZone: 'America/Bogota',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-});
-
 export interface RefinementHeartbeatLeague {
   leagueId: number;
   status: LeagueStatus;
@@ -41,6 +34,26 @@ export interface RefinementHeartbeatClosedEntry {
   reason: string;
 }
 
+/** Datos ya decididos por el backend para resaltar una apuesta PAPER autorizada. */
+export interface RefinementHeartbeatApprovedBet {
+  home: string;
+  away: string;
+  selection: string;
+  modelProbability?: number;
+  offeredOdds?: number;
+  minimumAcceptableOdds?: number;
+  edge?: number;
+  expectedValue?: number;
+  riskGate?: string;
+  stakeCop?: number;
+}
+
+export interface RefinementHeartbeatNoBetEntry {
+  home: string;
+  away: string;
+  reason: string;
+}
+
 export interface RefinementHeartbeatInput {
   now: Date;
   /** Desglose por liga del universo V1 (orden fijo), sin IDs técnicos en el mensaje. */
@@ -53,6 +66,8 @@ export interface RefinementHeartbeatInput {
   noOdds?: number;
   radar?: readonly RefinementHeartbeatRadarEntry[];
   closedFollowups?: readonly RefinementHeartbeatClosedEntry[];
+  approvedBets?: readonly RefinementHeartbeatApprovedBet[];
+  noBetEntries?: readonly RefinementHeartbeatNoBetEntry[];
   bets?: number;
   noBets?: number;
   insufficientData?: number;
@@ -97,35 +112,84 @@ function formatRadarEntry(entry: RefinementHeartbeatRadarEntry, index: number): 
     `${RADAR_NUMBER_EMOJI[index] ?? `${index + 1}.`} ${entry.home} vs ${entry.away}`,
     ...(entry.kickoffAt === undefined ? [] : [`📅 ${formatKickoffBogota(entry.kickoffAt)}`]),
     `${entry.marketEmoji ?? ''} ${entry.selection}`.trim(),
-    `🧠 Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
-    status,
+    `🧠 Probabilidad Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
+    entry.noOdds === true ? status : '👀 Seguimiento activo',
     ...(entry.experimental === true ? ['⚠️ Modelo interliga no habilitado para apostar.'] : []),
     ...(entry.shortHint === undefined ? [] : [`💡 ${entry.shortHint}`]),
   ];
 }
 
+function humanNoBetReason(reason: string): string {
+  switch (reason) {
+    case 'EV':
+    case 'RISK':
+      return 'valor esperado insuficiente';
+    case 'ODDS_RANGE':
+    case 'ODDS_TOO_LOW':
+      return 'cuota fuera del rango permitido';
+    case 'EXPIRED':
+      return 'ventana prepartido cerrada';
+    default:
+      return 'datos insuficientes';
+  }
+}
+
+function humanSelection(selection: string): string {
+  if (selection === 'OVER_2_5') return 'MÁS DE 2.5 GOLES';
+  if (selection === 'UNDER_2_5') return 'MENOS DE 2.5 GOLES';
+  return selection;
+}
+
+function formatCop(value: number): string {
+  return `${Math.round(value).toLocaleString('es-CO')} COP`;
+}
+
+function formatApprovedBet(entry: RefinementHeartbeatApprovedBet): string[] {
+  const lines = [`${entry.home} vs ${entry.away}`, humanSelection(entry.selection)];
+  if (entry.modelProbability !== undefined)
+    lines.push(`🧠 Kerberos: ${(entry.modelProbability * 100).toFixed(1)}%`);
+  if (entry.offeredOdds !== undefined)
+    lines.push(`💰 Cuota actual: ${entry.offeredOdds.toFixed(2)}`);
+  if (entry.minimumAcceptableOdds !== undefined)
+    lines.push(`🎯 Cuota mínima: ${entry.minimumAcceptableOdds.toFixed(2)}`);
+  if (entry.edge !== undefined)
+    lines.push(`📈 Edge: ${entry.edge >= 0 ? '+' : ''}${(entry.edge * 100).toFixed(1)} pp`);
+  if (entry.expectedValue !== undefined)
+    lines.push(
+      `💵 EV: ${entry.expectedValue >= 0 ? '+' : ''}${(entry.expectedValue * 100).toFixed(1)}%`,
+    );
+  if (entry.riskGate !== undefined) lines.push(`🛡️ Risk Gate: ${entry.riskGate}`);
+  if (entry.stakeCop !== undefined) lines.push(`💰 Stake autorizado: ${formatCop(entry.stakeCop)}`);
+  lines.push('', '👤 Ejecución manual');
+  return lines;
+}
+
 export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): string {
-  const hasError = input.error !== undefined || input.counters.errors > 0;
   const totalDetected = input.byLeague.reduce((sum, league) => sum + league.fixturesDetected, 0);
-  const europa = input.byLeague.find((league) => league.leagueId === 3);
-  const europaDetected = europa?.fixturesDetected ?? 0;
-  const europaModelled = europa?.modelled ?? 0;
+  const approvedBets = input.approvedBets ?? [];
+  const noBetEntries = input.noBetEntries ?? [];
 
   const lines = [
     '⚽ KERBEROS SPORTS',
     '',
-    hasError ? '⚠️ Revisión completada con una incidencia' : '✅ Revisión completada',
+    '✅ Revisión completada',
     '',
-    `🔎 ${totalDetected} partidos detectados · 👀 ${input.preAnalysisCount ?? 0} en preanálisis`,
+    '📊 ESTADO',
+    `${totalDetected} partidos detectados`,
+    `${input.preAnalysisCount ?? 0} en preanálisis`,
     `🎯 ${input.bets ?? 0} apuestas aprobadas`,
-    '',
-    `Modelados: ${input.fixturesModelled ?? 0}`,
-    `Con mercado evaluado: ${input.marketAnalyzed ?? 0}`,
-    `Hoy detectados: ${input.todayRawFixtures ?? 0}`,
-    `Hoy modelables: ${input.todayModelable ?? input.todayModelEnabled ?? 0}`,
-    `Hoy preanalizados: ${input.todayPreanalysis ?? 0}`,
-    `Próximos preanalizados: ${input.upcomingPreanalysis ?? 0}`,
-    ...(input.todayRejected === undefined ? [] : [`No modelables hoy: ${input.todayRejected}`]),
+    ...(input.nextT6Fixture === undefined || input.nextT6At === undefined
+      ? []
+      : [
+          '',
+          '⏭ PRÓXIMA EVALUACIÓN',
+          input.nextT6Fixture,
+          `🕐 ${formatKickoffBogota(input.nextT6At)}`,
+          '📌 En ese momento Kerberos revisará cuotas y valor de mercado.',
+        ]),
+    ...(input.todayRejected === undefined || input.todayRejected === 0
+      ? []
+      : ['', 'ℹ️ FUERA DE SEGUIMIENTO HOY']),
     ...(input.todayRejectionExamples === undefined || input.todayRejectionExamples.length === 0
       ? []
       : [
@@ -137,26 +201,27 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
             ? [`• +${input.todayRejected - 3} descartes adicionales`]
             : []),
         ]),
-    `NO_BET: ${input.noBets ?? 0}`,
-    `Sin odds: ${input.oddsUnavailable ?? 0}`,
-    `Datos insuficientes: ${input.insufficientData ?? 0}`,
-    ...(input.nextT6Fixture === undefined || input.nextT6At === undefined
-      ? []
-      : [
-          '',
-          `⏭ Próxima evaluación de mercado:`,
-          `${input.nextT6Fixture}`,
-          `T-6: ${T6_TIME_FORMATTER.format(input.nextT6At)}`,
-        ]),
-    ...(europaDetected > 0
+    ...(input.bets !== undefined && input.bets > 0
+      ? ['', '🎯 LISTA PARA EJECUCIÓN', ...approvedBets.flatMap(formatApprovedBet)]
+      : []),
+    ...(input.noBets !== undefined && input.noBets > 0
       ? [
           '',
-          `Europa League hoy: ${europaDetected}`,
-          `Europa preanalizados: ${europaModelled}`,
-          `Europa experimental: ${europaModelled}`,
-          `Europa datos insuficientes: ${Math.max(0, europaDetected - europaModelled)}`,
-          'Europa apuestas ejecutables: 0',
+          '⚪ EVALUADOS — NO APOSTAR',
+          ...noBetEntries
+            .slice(0, 3)
+            .flatMap((entry) => [
+              `• ${entry.home} vs ${entry.away}`,
+              `  Motivo: ${humanNoBetReason(entry.reason)}`,
+              '',
+            ]),
         ]
+      : []),
+    ...(input.oddsUnavailable !== undefined && input.oddsUnavailable > 0
+      ? ['', `💰 Sin cuotas: ${input.oddsUnavailable}`]
+      : []),
+    ...(input.insufficientData !== undefined && input.insufficientData > 0
+      ? ['', `📊 Datos insuficientes: ${input.insufficientData}`]
       : []),
   ];
 
@@ -185,7 +250,7 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
       });
     };
     if (today.length > 0) {
-      renderSection('🔥 PARTIDOS DE HOY', today, 0);
+      renderSection('🔥 PARTIDOS A SEGUIR', today, 0);
       if ((input.todayPreanalysis ?? 0) > today.length)
         lines.push(
           '',
@@ -193,43 +258,18 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
         );
     }
     if (upcoming.length > 0) {
-      renderSection(
-        today.length > 0 ? '📆 PRÓXIMOS' : '🔥 PARTIDOS A SEGUIR',
-        upcoming,
-        today.length,
-      );
+      renderSection('🔥 PARTIDOS A SEGUIR', upcoming, today.length);
     }
   }
 
-  const closed = input.closedFollowups ?? [];
-  if (closed.length > 0) {
-    lines.push('', '⏱️ Seguimiento cerrado', '');
-    for (const entry of closed.slice(0, 3)) {
-      lines.push(
-        `${entry.home} vs ${entry.away}`,
-        entry.selection,
-        `Preanálisis previo: ${(entry.probability * 100).toFixed(1)}%`,
-        `Motivo: ${entry.reason}`,
-        '',
-      );
-    }
-    if (closed.length > 3) lines.push(`+${closed.length - 3} cierres adicionales`);
-  }
-
-  lines.push('', hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando');
-  if (radar.length > 0) lines.push('⚠️ Todavía no son apuestas aprobadas.');
+  if ((input.bets ?? 0) === 0) lines.push('', '⚠️ Todavía no hay apuestas aprobadas.');
 
   if (input.budgetBlocked !== undefined && input.budgetBlocked > 0) {
-    lines.splice(3, 0, '⚠️ Análisis parcial');
-    lines.splice(7, 0, `Pendientes por límite API: ${input.budgetBlocked}`);
-    if (input.budgetProvider !== undefined)
-      lines.splice(8, 0, `Proveedor limitado: ${input.budgetProvider}`);
-    if (input.budgetResetAt !== undefined)
-      lines.splice(9, 0, `Próximo reset: ${input.budgetResetAt}`);
+    lines.push('', '⚠️ INCIDENCIAS', `Análisis parcial: límite temporal de consultas`);
   }
   if (input.error !== undefined) {
     const status = humanizeTechnicalStatus(input.error);
-    lines.push('', `Detalle: ${status.label}`);
+    lines.push('', '⚠️ INCIDENCIAS', status.label);
     if (status.explanation !== undefined) lines.push(status.explanation);
   }
   return lines.join('\n');

@@ -33,6 +33,10 @@ import { LEAGUE_UNIVERSE } from '../../scanning/domain/leagueUniverse';
 import { evaluateDecisionWindow } from '../../scanning/domain/decisionWindow';
 import { formatKickoffBogota } from '../../notifications/domain/formatKickoff';
 import { logger } from '../../../shared/logging/logger';
+import type {
+  RefinementHeartbeatApprovedBet,
+  RefinementHeartbeatNoBetEntry,
+} from '../../notifications/domain/refinementHeartbeat';
 
 export interface RefinementLeagueSummary {
   leagueId: number;
@@ -337,6 +341,8 @@ export class RefinementService {
       kickoffAt: Date;
       experimental: boolean;
     }[] = [];
+    let approvedBets: RefinementHeartbeatApprovedBet[] = [];
+    let noBetEntries: RefinementHeartbeatNoBetEntry[] = [];
     try {
       const settlement = await this.settlement.settleOpenBets();
       tick.settlements = settlement.settled;
@@ -578,6 +584,13 @@ export class RefinementService {
         tick.paperBetsCreated = result.paperBetsCreated;
         tick.noBets =
           result.result.analyses?.filter((analysis) => analysis.decision === 'NO_BET').length ?? 0;
+        noBetEntries = (result.result.analyses ?? [])
+          .filter((analysis) => analysis.decision === 'NO_BET')
+          .map((analysis) => ({
+            home: analysis.fixture.homeTeam,
+            away: analysis.fixture.awayTeam,
+            reason: analysis.reason ?? 'INSUFFICIENT_DATA',
+          }));
         tick.noBetCount = tick.noBets;
         tick.insufficientData = result.result.rejected?.MODEL_DATA ?? 0;
         tick.oddsUnavailable = Math.max(
@@ -665,6 +678,22 @@ export class RefinementService {
     }
 
     tick.openPaperBets = this.bets.listByStatus('OPEN').length;
+    if (tick.paperBetsCreated > 0) {
+      approvedBets = this.bets
+        .listByStatus('OPEN')
+        .filter((bet) => bet.createdAt.getTime() >= now.getTime())
+        .map((bet) => ({
+          home: bet.homeTeam,
+          away: bet.awayTeam,
+          selection: bet.selection,
+          modelProbability: bet.modelProbability,
+          offeredOdds: bet.placedOdds,
+          minimumAcceptableOdds: bet.minimumAcceptableOdds,
+          edge: bet.edge,
+          expectedValue: bet.expectedValue,
+          stakeCop: bet.stake,
+        }));
+    }
     tick.oddsPapiRequests = this.scanning.oddsPapiRequests() - beforeOdds;
     tick.oddsRequested = tick.oddsPapiRequests;
     tick.apiFootballRequests =
@@ -722,6 +751,8 @@ export class RefinementService {
             noOdds: tick.noOdds,
             radar: radar.map((entry) => ({ ...entry, experimental: entry.experimental })),
             closedFollowups: this.closedFollowups(now, radar),
+            approvedBets,
+            noBetEntries,
             todayRawFixtures: tick.todayRawFixtures,
             todayModelEnabled: tick.todayModelEnabled,
             todayModelable: tick.todayModelable,
