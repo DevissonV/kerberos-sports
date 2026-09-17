@@ -24,3 +24,16 @@ npm run build: PASS
 
 Commit: `chore(resources): organizar documentación persistente fuera de temp`.
 La secuencia de publicación debe dejar `main == origin/main == release == origin/release`.
+
+## CIERRE
+
+```text
+MAIN_HEAD: 6a097ee237973116f0c2cfb003923c1d0289b54c
+ORIGIN_MAIN_HEAD: 6a097ee237973116f0c2cfb003923c1d0289b54c
+RELEASE_HEAD: 6a097ee237973116f0c2cfb003923c1d0289b54c
+ORIGIN_RELEASE_HEAD: 6a097ee237973116f0c2cfb003923c1d0289b54c
+ALL_FOUR_HEADS_EQUAL: YES
+WORKTREE_CLEAN: YES
+RAILWAY_DEPLOYED_COMMIT: 6a097ee237973116f0c2cfb003923c1d0289b54c
+RAILWAY_STATUS: BUILDING al momento del cierre
+```
