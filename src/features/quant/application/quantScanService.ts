@@ -127,16 +127,39 @@ export class QuantScanService {
         analysis.decision === 'BET' && prepared !== undefined
           ? this.actionableMessage(prepared.bet, now)
           : formatQuantAnalysisMessage(analysis);
-      if (message === null) continue;
-      try {
-        await this.notifications.send(message);
-        analysisMessagesSent += 1;
-      } catch (cause) {
-        logger.warn('Telegram fallo para análisis QUANT', {
-          fixtureId: analysis.fixture.id,
-          error: cause instanceof Error ? cause.message : String(cause),
-        });
+      let telegramSent = false;
+      if (message !== null) {
+        try {
+          await this.notifications.send(message);
+          analysisMessagesSent += 1;
+          telegramSent = true;
+        } catch (cause) {
+          logger.warn('Telegram fallo para análisis QUANT', {
+            fixtureId: analysis.fixture.id,
+            error: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
       }
+      logger.info('MARKET_ANALYSIS_COMPLETED', {
+        fixtureId: analysis.fixture.id,
+        fixture: `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+        status: analysis.decision,
+        timestamp: now.toISOString(),
+      });
+      logger.info('FINAL_DECISION', {
+        fixtureId: analysis.fixture.id,
+        fixture: `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+        selection: analysis.side?.selection ?? null,
+        modelProbability: analysis.side?.modelProbability ?? null,
+        observedOdds: analysis.side?.offeredOdds ?? null,
+        minimumAcceptableOdds: analysis.side?.minimumAcceptableOdds ?? null,
+        edge: analysis.side?.edge ?? null,
+        ev: analysis.side?.expectedValue ?? null,
+        decision: analysis.decision,
+        reason: analysis.reason ?? null,
+        riskDecision: analysis.reason === 'RISK' ? analysis.reason : null,
+        telegramSent,
+      });
     }
     return {
       scan,

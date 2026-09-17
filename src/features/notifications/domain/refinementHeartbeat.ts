@@ -68,6 +68,8 @@ export interface RefinementHeartbeatInput {
   budgetProvider?: string;
   budgetResetAt?: string;
   error?: string;
+  nextT6Fixture?: string;
+  nextT6At?: Date;
 }
 
 const RADAR_NUMBER_EMOJI = ['1️⃣', '2️⃣', '3️⃣'];
@@ -131,6 +133,13 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     `NO_BET: ${input.noBets ?? 0}`,
     `Sin odds: ${input.oddsUnavailable ?? 0}`,
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
+    ...(input.nextT6Fixture === undefined || input.nextT6At === undefined
+      ? []
+      : [
+          '',
+          `⏭ Próxima evaluación de mercado:`,
+          `${input.nextT6Fixture} · ${formatKickoffBogota(input.nextT6At)}`,
+        ]),
     ...(europaDetected > 0
       ? [
           '',

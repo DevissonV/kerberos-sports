@@ -30,6 +30,9 @@ import {
   computeEuropaExperimentalModel,
 } from '../../scanning/domain/europaCoverage';
 import { LEAGUE_UNIVERSE } from '../../scanning/domain/leagueUniverse';
+import { evaluateDecisionWindow } from '../../scanning/domain/decisionWindow';
+import { formatKickoffBogota } from '../../notifications/domain/formatKickoff';
+import { logger } from '../../../shared/logging/logger';
 
 export interface RefinementLeagueSummary {
   leagueId: number;
@@ -127,6 +130,8 @@ export interface RefinementTickSummary {
   todayExclusions?: Record<string, number>;
   radarTodayShown?: number;
   radarUpcomingShown?: number;
+  nextT6Fixture?: string;
+  nextT6At?: string;
 }
 
 export function refinementTickId(now: Date): string {
@@ -387,6 +392,16 @@ export class RefinementService {
       const allAnalyses = [...modelAnalysis.analyses, ...experimentalAnalyses];
       tick.preAnalysisCount = allAnalyses.length;
       tick.modelledFixtures = tick.preAnalysisCount;
+      for (const analysis of allAnalyses) {
+        logPreanalysisFixture(analysis.fixture, now);
+      }
+      const nextT6 = nextT6Fixture(precheck.preAnalysisFixtures ?? [], now);
+      tick.nextT6Fixture = nextT6?.fixtureLabel;
+      tick.nextT6At = nextT6?.decisionAt.toISOString();
+      if (nextT6 !== undefined) {
+        logger.info('NEXT_T6_FIXTURE', { fixture: nextT6.fixtureLabel });
+        logger.info('NEXT_T6_AT', { nextT6At: nextT6.decisionAt.toISOString() });
+      }
       tick.insufficientData =
         modelAnalysis.insufficientData +
         (precheck.experimentalPreAnalysisFixtures?.length ?? 0) -
@@ -489,6 +504,27 @@ export class RefinementService {
         );
       if (pending.length > 0) {
         tick.marketAnalysisAttempted = pending.length;
+        for (const entry of pending) {
+          if (entry.fixture.kickoffAt instanceof Date) {
+            logger.info('T6_TRANSITION', {
+              fixtureId: entry.fixture.id,
+              fixture: fixtureLabel(entry.fixture),
+              kickoff: entry.fixture.kickoffAt.toISOString(),
+              previousState: 'PREANALYSIS',
+              newState: 'T6',
+              timestamp: now.toISOString(),
+            });
+          }
+          logger.info('MARKET_ANALYSIS_STARTED', {
+            fixtureId: entry.fixture.id,
+            fixture: fixtureLabel(entry.fixture),
+            kickoff:
+              entry.fixture.kickoffAt instanceof Date
+                ? entry.fixture.kickoffAt.toISOString()
+                : null,
+            timestamp: now.toISOString(),
+          });
+        }
         const result = await this.quant.runScanForFixtures(
           pending.map((entry) => entry.fixture),
           now,
@@ -542,6 +578,37 @@ export class RefinementService {
             decision: 'NO_ODDS',
             reason: 'NO_BOOKMAKER',
           });
+        }
+        for (const entry of pending) {
+          const analysis = result.result.analyses?.find(
+            (candidate) => candidate.fixture.id === entry.fixture.id,
+          );
+          if (analysis !== undefined) {
+            continue;
+          }
+          const model = modelByFixture.get(entry.fixture.id)?.model;
+          if (model !== undefined) {
+            logger.info('MARKET_ANALYSIS_COMPLETED', {
+              fixtureId: entry.fixture.id,
+              fixture: fixtureLabel(entry.fixture),
+              status: 'NO_ODDS',
+              timestamp: now.toISOString(),
+            });
+            logFinalDecision({
+              fixture: entry.fixture,
+              selection: model.pOver >= model.pUnder ? 'OVER_2_5' : 'UNDER_2_5',
+              modelProbability: Math.max(model.pOver, model.pUnder),
+              observedOdds: null,
+              minimumAcceptableOdds: null,
+              edge: null,
+              ev: null,
+              decision: 'NO_ODDS',
+              reason: 'NO_BOOKMAKER',
+              riskDecision: null,
+              telegramSent: false,
+              now,
+            });
+          }
         }
         tick.oddsRequested = tick.oddsPapiRequests;
         tick.oddsAvailableFixtures = result.scan?.report.candidatesNormalized ?? 0;
@@ -633,6 +700,8 @@ export class RefinementService {
             upcomingPreanalysis: tick.upcomingPreanalysis,
             radarTodayShown: tick.radarTodayShown,
             radarUpcomingShown: tick.radarUpcomingShown,
+            nextT6Fixture: tick.nextT6Fixture,
+            nextT6At: tick.nextT6At === undefined ? undefined : new Date(tick.nextT6At),
           }),
         );
         tick.telegramHeartbeatSent = true;
@@ -642,6 +711,10 @@ export class RefinementService {
     }
 
     process.stdout.write(`${renderRefinementTick(tick)}\n`);
+    if (tick.nextT6Fixture === undefined) {
+      logger.info('NEXT_T6_FIXTURE', { fixture: 'NONE' });
+      logger.info('NEXT_T6_AT', { nextT6At: 'NONE' });
+    }
     return tick;
   }
 
@@ -677,6 +750,76 @@ function nextUtcDay(day: string): string {
   const next = new Date(`${day}T00:00:00.000Z`);
   next.setUTCDate(next.getUTCDate() + 1);
   return next.toISOString();
+}
+
+function fixtureLabel(fixture: Fixture): string {
+  return `${fixture.homeTeam} vs ${fixture.awayTeam}`;
+}
+
+export function hoursUntilKickoff(kickoffAt: Date, now: Date): number {
+  return Number(((kickoffAt.getTime() - now.getTime()) / 3_600_000).toFixed(2));
+}
+
+export function logPreanalysisFixture(fixture: Fixture, now: Date): void {
+  logger.info('PREANALYSIS_FIXTURE', {
+    fixtureId: fixture.id,
+    league: fixture.league,
+    homeTeam: fixture.homeTeam,
+    awayTeam: fixture.awayTeam,
+    kickoffAtUtc: fixture.kickoffAt.toISOString(),
+    kickoffAtBogota: formatKickoffBogota(fixture.kickoffAt),
+    currentState: 'PREANALYSIS',
+    hoursUntilKickoff: hoursUntilKickoff(fixture.kickoffAt, now),
+    t6Eligible: evaluateDecisionWindow(fixture.kickoffAt, now) === 'ELIGIBLE_AT_DECISION_WINDOW',
+  });
+}
+
+export function nextT6Fixture(
+  entries: readonly { fixture: Fixture; decisionAt: Date }[],
+  now: Date,
+): { fixtureLabel: string; decisionAt: Date } | undefined {
+  return entries
+    .filter(
+      (entry) =>
+        entry.fixture.kickoffAt instanceof Date &&
+        entry.fixture.kickoffAt.getTime() > now.getTime(),
+    )
+    .sort((left, right) => left.fixture.kickoffAt.getTime() - right.fixture.kickoffAt.getTime())
+    .map((entry) => ({
+      fixtureLabel: fixtureLabel(entry.fixture),
+      decisionAt: entry.decisionAt,
+    }))[0];
+}
+
+function logFinalDecision(input: {
+  fixture: Fixture;
+  selection: string | null;
+  modelProbability: number | null;
+  observedOdds: number | null;
+  minimumAcceptableOdds: number | null;
+  edge: number | null;
+  ev: number | null;
+  decision: string;
+  reason: string | null;
+  riskDecision: string | null;
+  telegramSent: boolean;
+  now: Date;
+}): void {
+  logger.info('FINAL_DECISION', {
+    fixtureId: input.fixture.id,
+    fixture: fixtureLabel(input.fixture),
+    selection: input.selection,
+    modelProbability: input.modelProbability,
+    observedOdds: input.observedOdds,
+    minimumAcceptableOdds: input.minimumAcceptableOdds,
+    edge: input.edge,
+    ev: input.ev,
+    decision: input.decision,
+    reason: input.reason,
+    riskDecision: input.riskDecision,
+    telegramSent: input.telegramSent,
+    timestamp: input.now.toISOString(),
+  });
 }
 
 function enrichLeagueSummaries(
