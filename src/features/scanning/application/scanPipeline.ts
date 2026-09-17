@@ -159,9 +159,10 @@ export async function runScan(deps: ScanDeps): Promise<ScanOutput> {
     missedWindow: fixtureWindows.filter((entry) => entry.status === 'MISSED_WINDOW').length,
     started: fixtureWindows.filter((entry) => entry.status === 'STARTED').length,
   };
-  const matchedPairs = await deps.fetchOddsPairs(
-    temporalEligible.map((entry) => entry.result.oddsEvent),
-  );
+  const matchedPairs =
+    temporalEligible.length === 0
+      ? []
+      : await deps.fetchOddsPairs(temporalEligible.map((entry) => entry.result.oddsEvent));
   const pairsByEvent = new Map<string, OddsPair[]>();
   for (const pair of matchedPairs) {
     const list = pairsByEvent.get(pair.fixtureId) ?? [];

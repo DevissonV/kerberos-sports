@@ -18,6 +18,9 @@ export interface RefinementHeartbeatInput {
   noBets?: number;
   insufficientData?: number;
   oddsUnavailable?: number;
+  budgetBlocked?: number;
+  budgetProvider?: string;
+  budgetResetAt?: string;
   error?: string;
 }
 
@@ -38,6 +41,14 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     `Datos insuficientes: ${input.insufficientData ?? 0}`,
     hasError ? '⚠️ Revisión con incidencia' : '🟢 Sistema funcionando',
   ];
+  if (input.budgetBlocked !== undefined && input.budgetBlocked > 0) {
+    lines.splice(3, 0, '⚠️ Análisis parcial');
+    lines.splice(7, 0, `Pendientes por límite API: ${input.budgetBlocked}`);
+    if (input.budgetProvider !== undefined)
+      lines.splice(8, 0, `Proveedor limitado: ${input.budgetProvider}`);
+    if (input.budgetResetAt !== undefined)
+      lines.splice(9, 0, `Próximo reset: ${input.budgetResetAt}`);
+  }
   if (input.error !== undefined) lines.push('', `Detalle: ${input.error.slice(0, 180)}`);
   return lines.join('\n');
 }

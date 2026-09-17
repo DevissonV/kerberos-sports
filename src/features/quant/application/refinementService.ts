@@ -19,6 +19,13 @@ export interface RefinementLeagueSummary {
   status: LeagueStatus;
   fixturesDetected: number;
   modelEligible: number;
+  inDecisionWindow?: number;
+  modelled?: number;
+  oddsAvailable?: number;
+  analyzed?: number;
+  bet?: number;
+  noBet?: number;
+  rejectionReason?: string;
   oddsRequested: number;
   quantCandidates: number;
   paperBets: number;
@@ -31,9 +38,24 @@ export interface RefinementTickSummary {
   tickId: string;
   precheckOnly: boolean;
   rawFixtures: number;
+  supportedLeagueFixtures?: number;
   eligibleFixtures: number;
   observationFixtures: number;
   decisionWindowFixtures: number;
+  outsideDecisionWindow?: number;
+  historyReady?: number;
+  aliasesReady?: number;
+  modelledFixtures?: number;
+  oddsRequested?: number;
+  oddsAvailableFixtures?: number;
+  analyzedFixtures?: number;
+  budgetBlocked?: number;
+  budgetGuardType?: string;
+  budgetProvider?: string;
+  budgetLimit?: number;
+  budgetCurrentUsage?: number;
+  budgetRemaining?: number;
+  budgetResetAt?: string;
   byLeague: RefinementLeagueSummary[];
   fullOddsScans: number;
   oddsPapiRequests: number;
@@ -74,15 +96,31 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     '',
     `precheckOnly=${summary.precheckOnly}`,
     `rawFixtures=${summary.rawFixtures}`,
+    `supportedLeagueFixtures=${summary.supportedLeagueFixtures ?? 0}`,
     `eligibleFixtures=${summary.eligibleFixtures}`,
     `observationFixtures=${summary.observationFixtures}`,
     `decisionWindowFixtures=${summary.decisionWindowFixtures}`,
+    `outsideDecisionWindow=${summary.outsideDecisionWindow ?? 0}`,
+    `historyReady=${summary.historyReady ?? 0}`,
+    `aliasesReady=${summary.aliasesReady ?? 0}`,
+    `modelledFixtures=${summary.modelledFixtures ?? 0}`,
+    `oddsRequested=${summary.oddsRequested ?? 0}`,
+    `oddsAvailableFixtures=${summary.oddsAvailableFixtures ?? 0}`,
+    `analyzedFixtures=${summary.analyzedFixtures ?? 0}`,
+    `budgetBlocked=${summary.budgetBlocked ?? 0}`,
     '',
     ...summary.byLeague.flatMap((entry) => [
       `league=${entry.league}`,
       `status=${entry.status}`,
       `fixturesDetected=${entry.fixturesDetected}`,
       `modelEligible=${entry.modelEligible}`,
+      `inDecisionWindow=${entry.inDecisionWindow ?? 0}`,
+      `modelled=${entry.modelled ?? 0}`,
+      `oddsAvailable=${entry.oddsAvailable ?? 0}`,
+      `analyzed=${entry.analyzed ?? 0}`,
+      `bet=${entry.bet ?? 0}`,
+      `noBet=${entry.noBet ?? 0}`,
+      ...(entry.rejectionReason === undefined ? [] : [`rejectionReason=${entry.rejectionReason}`]),
       `oddsRequested=${entry.oddsRequested}`,
       `quantCandidates=${entry.quantCandidates}`,
       `paperBets=${entry.paperBets}`,
@@ -151,9 +189,18 @@ export class RefinementService {
       tickId,
       precheckOnly: true,
       rawFixtures: 0,
+      supportedLeagueFixtures: 0,
       eligibleFixtures: 0,
       observationFixtures: 0,
       decisionWindowFixtures: 0,
+      outsideDecisionWindow: 0,
+      historyReady: 0,
+      aliasesReady: 0,
+      modelledFixtures: 0,
+      oddsRequested: 0,
+      oddsAvailableFixtures: 0,
+      analyzedFixtures: 0,
+      budgetBlocked: 0,
       byLeague: [],
       fullOddsScans: 0,
       oddsPapiRequests: 0,
@@ -190,21 +237,40 @@ export class RefinementService {
     try {
       const precheck = await this.scanning.precheck(20, now);
       tick.rawFixtures = precheck.rawFixtures;
+      tick.supportedLeagueFixtures =
+        precheck.supportedLeagueFixtures ??
+        precheck.rawFixtures -
+          precheck.byLeague
+            .filter((entry) => entry.status === 'EXCLUDED')
+            .reduce((sum, entry) => sum + entry.fixturesDetected, 0);
       tick.eligibleFixtures = precheck.eligibleFixtures;
       tick.observationFixtures = precheck.observationFixtures;
       tick.decisionWindowFixtures = precheck.decisionWindowFixtures.length;
+      tick.outsideDecisionWindow = precheck.eligibleFixtures - tick.decisionWindowFixtures;
       tick.byLeague = precheck.byLeague.map((entry) => ({
         leagueId: entry.leagueId,
         league: entry.canonicalName,
         status: entry.status,
         fixturesDetected: entry.fixturesDetected,
         modelEligible: entry.status === 'MODEL_ENABLED' ? entry.fixturesDetected : 0,
+        inDecisionWindow: precheck.decisionWindowFixtures.filter(
+          (candidate) => candidate.fixture.leagueId === entry.leagueId,
+        ).length,
         oddsRequested: 0,
         quantCandidates: 0,
         paperBets: 0,
       }));
       const daily = this.refinementStore.dailyCounters(day);
       const budgetGuard = daily.fullOddsScans >= config.maxOddsPapiFullScansPerDay;
+      if (budgetGuard) {
+        tick.budgetGuardType = 'INTERNAL_DAILY_FULL_ODDS_SCANS';
+        tick.budgetProvider = 'OddsPapi';
+        tick.budgetLimit = config.maxOddsPapiFullScansPerDay;
+        tick.budgetCurrentUsage = daily.fullOddsScans;
+        tick.budgetRemaining = Math.max(0, config.maxOddsPapiFullScansPerDay - daily.fullOddsScans);
+        tick.budgetResetAt = nextUtcDay(day);
+        tick.budgetBlocked = precheck.decisionWindowFixtures.length;
+      }
       const pending = budgetGuard
         ? []
         : precheck.decisionWindowFixtures.filter((entry) =>
@@ -222,6 +288,7 @@ export class RefinementService {
         tick.precheckOnly = false;
         tick.fullOddsScans = 1;
         tick.poissonModeled = result.result.poissonModeled;
+        tick.modelledFixtures = result.result.poissonModeled;
         tick.quantCandidates = result.result.quantCandidates;
         tick.paperBetsCreated = result.paperBetsCreated;
         tick.noBets =
@@ -232,6 +299,13 @@ export class RefinementService {
           (result.scan?.report.temporalEligible ?? 0) -
             (result.scan?.report.candidatesNormalized ?? 0),
         );
+        tick.oddsRequested = tick.oddsPapiRequests;
+        tick.oddsAvailableFixtures = result.scan?.report.candidatesNormalized ?? 0;
+        tick.analyzedFixtures = result.result.analyses?.length ?? 0;
+        tick.historyReady =
+          result.result.poissonModeled + (result.result.rejected?.MODEL_DATA ?? 0);
+        tick.aliasesReady = tick.historyReady;
+        tick.byLeague = enrichLeagueSummaries(tick.byLeague, precheck, result);
         tick.telegramBetMessages = result.telegramSent;
         tick.lunaSelected = result.luna.selected;
         tick.lunaCalls = result.luna.apiCalls;
@@ -245,6 +319,7 @@ export class RefinementService {
 
     tick.openPaperBets = this.bets.listByStatus('OPEN').length;
     tick.oddsPapiRequests = this.scanning.oddsPapiRequests() - beforeOdds;
+    tick.oddsRequested = tick.oddsPapiRequests;
     tick.apiFootballRequests =
       this.scanning.apiFootballRequests() +
       this.settlement.apiFootballRequests() -
@@ -256,8 +331,8 @@ export class RefinementService {
         ? {
             ...entry,
             oddsRequested: tick.oddsPapiRequests,
-            quantCandidates: tick.quantCandidates,
-            paperBets: tick.paperBetsCreated,
+            quantCandidates: entry.modelled ?? entry.quantCandidates,
+            paperBets: entry.bet ?? entry.paperBets,
           }
         : entry,
     );
@@ -290,6 +365,9 @@ export class RefinementService {
             noBets: tick.noBets,
             insufficientData: tick.insufficientData,
             oddsUnavailable: tick.oddsUnavailable,
+            budgetBlocked: tick.budgetBlocked,
+            budgetProvider: tick.budgetProvider,
+            budgetResetAt: tick.budgetResetAt,
             error: tick.error,
           }),
         );
@@ -302,6 +380,51 @@ export class RefinementService {
     process.stdout.write(`${renderRefinementTick(tick)}\n`);
     return tick;
   }
+}
+
+function nextUtcDay(day: string): string {
+  const next = new Date(`${day}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString();
+}
+
+function enrichLeagueSummaries(
+  summaries: RefinementLeagueSummary[],
+  precheck: Awaited<ReturnType<ScanningService['precheck']>>,
+  result: Awaited<ReturnType<QuantScanService['runScanForFixtures']>>,
+): RefinementLeagueSummary[] {
+  return summaries.map((summary) => {
+    const fixtures = precheck.decisionWindowFixtures.filter(
+      (entry) => entry.fixture.leagueId === summary.leagueId,
+    );
+    const rawAnalyses = result.result.analyses;
+    if (rawAnalyses === undefined) {
+      return {
+        ...summary,
+        inDecisionWindow: fixtures.length,
+        quantCandidates:
+          summary.status === 'MODEL_ENABLED'
+            ? result.result.quantCandidates
+            : summary.quantCandidates,
+        paperBets: summary.status === 'MODEL_ENABLED' ? result.paperBetsCreated : summary.paperBets,
+      };
+    }
+    const analyses = rawAnalyses.filter(
+      (analysis) => analysis.fixture.leagueId === summary.leagueId,
+    );
+    const modelled = analyses.length;
+    const bet = analyses.filter((analysis) => analysis.decision === 'BET').length;
+    return {
+      ...summary,
+      inDecisionWindow: fixtures.length,
+      modelled,
+      oddsAvailable: analyses.length,
+      analyzed: analyses.length,
+      bet,
+      noBet: analyses.length - bet,
+      rejectionReason: analyses.find((analysis) => analysis.reason)?.reason,
+    };
+  });
 }
 
 function countersForHeartbeat(tick: RefinementTickSummary): RefinementCounters {

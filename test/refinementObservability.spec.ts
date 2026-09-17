@@ -175,6 +175,53 @@ describe('observabilidad de REFINEMENT_MODE', () => {
     });
   });
 
+  it('explica cuántos fixtures quedan bloqueados por el presupuesto diario', async () => {
+    const { service, store, notifications } = makeDeps({
+      scanning: {
+        precheck: () =>
+          Promise.resolve({
+            rawFixtures: 12,
+            supportedLeagueFixtures: 12,
+            eligibleFixtures: 12,
+            observationFixtures: 0,
+            fixtures: [],
+            decisionWindowFixtures: Array.from({ length: 12 }, (_, index) => ({
+              fixture: { id: `f${index}`, leagueId: 39 },
+              decisionAt: NOW,
+              needsSnapshot: true,
+            })),
+            byLeague: [
+              {
+                leagueId: 39,
+                canonicalName: 'Premier League',
+                status: 'MODEL_ENABLED',
+                fixturesDetected: 12,
+              },
+            ],
+          }),
+      },
+    });
+    store.increment('2026-09-15', { fullOddsScans: 2 });
+
+    const summary = await service.runTick(
+      { refinementMode: true, maxOddsPapiFullScansPerDay: 2 },
+      NOW,
+    );
+
+    expect(summary).toMatchObject({
+      budgetGuardType: 'INTERNAL_DAILY_FULL_ODDS_SCANS',
+      budgetProvider: 'OddsPapi',
+      budgetLimit: 2,
+      budgetCurrentUsage: 2,
+      budgetRemaining: 0,
+      budgetBlocked: 12,
+      poissonModeled: 0,
+    });
+    expect(notifications.send).toHaveBeenCalledWith(
+      expect.stringContaining('Pendientes por límite API: 12'),
+    );
+  });
+
   it('es fail-open si Telegram falla y no duplica heartbeat en el mismo tick', async () => {
     const send = jest.fn<Promise<void>, [string]>().mockRejectedValue(new Error('Telegram caído'));
     const { service } = makeDeps({ notifications: { send } });

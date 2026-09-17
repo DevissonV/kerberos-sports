@@ -75,3 +75,22 @@ it('muestra preview como no ejecutable', () => {
   expect(message).toContain('👀 PREANÁLISIS — NO APOSTAR TODAVÍA');
   expect(message).toContain('Stake: NO DISPONIBLE');
 });
+
+it('no llama cuota demasiado baja cuando la cuota supera la mínima', () => {
+  const message = formatQuantAnalysisMessage({
+    ...analysis,
+    side: { ...analysis.side!, offeredOdds: 2.3, minimumAcceptableOdds: 1.76 },
+    reason: 'ODDS_RANGE',
+  });
+  expect(message).toContain('cuota fuera del rango permitido (supera el máximo)');
+  expect(message).not.toContain('cuota demasiado baja');
+});
+
+it('llama cuota demasiado baja solo cuando está por debajo de la mínima', () => {
+  const message = formatQuantAnalysisMessage({
+    ...analysis,
+    side: { ...analysis.side!, offeredOdds: 1.6, minimumAcceptableOdds: 1.76 },
+    reason: 'ODDS_RANGE',
+  });
+  expect(message).toContain('cuota demasiado baja');
+});

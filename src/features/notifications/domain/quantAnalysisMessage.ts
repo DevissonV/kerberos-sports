@@ -37,7 +37,7 @@ export function formatQuantAnalysisMessage(analysis: QuantFixtureAnalysis): stri
     '',
     '❌ NO APOSTAR',
     '',
-    `Motivo: ${reasonLabel(analysis.reason)}`,
+    `Motivo: ${reasonLabel(analysis.reason, analysis.side)}`,
     '',
     `Cuota actual: ${analysis.side.offeredOdds.toFixed(2)}`,
     `Cuota mínima: ${analysis.side.minimumAcceptableOdds.toFixed(2)}`,
@@ -46,14 +46,19 @@ export function formatQuantAnalysisMessage(analysis: QuantFixtureAnalysis): stri
   ].join('\n');
 }
 
-function reasonLabel(reason: QuantFixtureAnalysis['reason']): string {
+function reasonLabel(
+  reason: QuantFixtureAnalysis['reason'],
+  side: QuantFixtureAnalysis['side'],
+): string {
   switch (reason) {
     case 'EDGE':
       return 'ventaja insuficiente';
     case 'EV':
       return 'valor esperado insuficiente';
     case 'ODDS_RANGE':
-      return 'cuota demasiado baja';
+      if (side !== undefined && side.offeredOdds < side.minimumAcceptableOdds)
+        return 'cuota demasiado baja';
+      return 'cuota fuera del rango permitido (supera el máximo)';
     case 'RISK':
       return 'límite de riesgo alcanzado';
     default:
