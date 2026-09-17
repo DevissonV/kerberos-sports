@@ -187,42 +187,6 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
           `🕐 ${formatKickoffBogota(input.nextT6At)}`,
           '📌 En ese momento Kerberos revisará cuotas y valor de mercado.',
         ]),
-    ...(input.todayRejected === undefined || input.todayRejected === 0
-      ? []
-      : ['', 'ℹ️ FUERA DE SEGUIMIENTO HOY']),
-    ...(input.todayRejectionExamples === undefined || input.todayRejectionExamples.length === 0
-      ? []
-      : [
-          ...input.todayRejectionExamples.slice(0, 3).flatMap((entry) => {
-            const status = humanizeTechnicalStatus(entry.reason);
-            return [`• ${entry.home} vs ${entry.away}`, `  ${status.label}`];
-          }),
-          ...(input.todayRejected !== undefined && input.todayRejected > 3
-            ? [`• +${input.todayRejected - 3} descartes adicionales`]
-            : []),
-        ]),
-    ...(input.bets !== undefined && input.bets > 0
-      ? ['', '🎯 LISTA PARA EJECUCIÓN', ...approvedBets.flatMap(formatApprovedBet)]
-      : []),
-    ...(input.noBets !== undefined && input.noBets > 0
-      ? [
-          '',
-          '⚪ EVALUADOS — NO APOSTAR',
-          ...noBetEntries
-            .slice(0, 3)
-            .flatMap((entry) => [
-              `• ${entry.home} vs ${entry.away}`,
-              `  Motivo: ${humanNoBetReason(entry.reason)}`,
-              '',
-            ]),
-        ]
-      : []),
-    ...(input.oddsUnavailable !== undefined && input.oddsUnavailable > 0
-      ? ['', `💰 Sin cuotas: ${input.oddsUnavailable}`]
-      : []),
-    ...(input.insufficientData !== undefined && input.insufficientData > 0
-      ? ['', `📊 Datos insuficientes: ${input.insufficientData}`]
-      : []),
   ];
 
   const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar : [];
@@ -261,6 +225,40 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
       renderSection('🔥 PARTIDOS A SEGUIR', upcoming, today.length);
     }
   }
+
+  if (input.todayRejected !== undefined && input.todayRejected > 0) {
+    lines.push('', 'ℹ️ FUERA DE SEGUIMIENTO HOY');
+    if (input.todayRejectionExamples !== undefined) {
+      lines.push(
+        ...input.todayRejectionExamples.slice(0, 3).flatMap((entry) => {
+          const status = humanizeTechnicalStatus(entry.reason);
+          return [`• ${entry.home} vs ${entry.away}`, `  ${status.label}`];
+        }),
+      );
+      if (input.todayRejected > 3)
+        lines.push(`• +${input.todayRejected - 3} descartes adicionales`);
+    }
+  }
+
+  if (input.bets !== undefined && input.bets > 0) {
+    lines.push('', '🎯 LISTA PARA EJECUCIÓN', ...approvedBets.flatMap(formatApprovedBet));
+  }
+  if (input.noBets !== undefined && input.noBets > 0) {
+    lines.push('', '⚪ EVALUADOS — NO APOSTAR');
+    lines.push(
+      ...noBetEntries
+        .slice(0, 3)
+        .flatMap((entry) => [
+          `• ${entry.home} vs ${entry.away}`,
+          `  Motivo: ${humanNoBetReason(entry.reason)}`,
+          '',
+        ]),
+    );
+  }
+  if (input.oddsUnavailable !== undefined && input.oddsUnavailable > 0)
+    lines.push('', `💰 Sin cuotas: ${input.oddsUnavailable}`);
+  if (input.insufficientData !== undefined && input.insufficientData > 0)
+    lines.push('', `📊 Datos insuficientes: ${input.insufficientData}`);
 
   if ((input.bets ?? 0) === 0) lines.push('', '⚠️ Todavía no hay apuestas aprobadas.');
 
