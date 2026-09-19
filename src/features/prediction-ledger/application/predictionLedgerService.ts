@@ -52,9 +52,8 @@ export class PredictionLedgerService {
   }
 
   recordMarketAnalysis(analysis: QuantFixtureAnalysis): Prediction {
-    const selection =
-      analysis.side?.selection ??
-      (analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5');
+    const selection = analysis.model.pOver >= analysis.model.pUnder ? 'OVER_2_5' : 'UNDER_2_5';
+    const marketSideMatchesPrediction = analysis.side?.selection === selection;
     return this.store.save({
       fixtureId: analysis.fixture.id,
       league: analysis.fixture.league,
@@ -65,17 +64,17 @@ export class PredictionLedgerService {
       snapshotAt: analysis.snapshotAt ?? analysis.model.snapshotAt,
       market: 'OVER_UNDER_2_5',
       selection,
-      modelProbability:
-        analysis.side?.modelProbability ??
-        (selection === 'OVER_2_5' ? analysis.model.pOver : analysis.model.pUnder),
+      modelProbability: selection === 'OVER_2_5' ? analysis.model.pOver : analysis.model.pUnder,
       expectedGoals: analysis.model.lambdaTotal,
       modelVersion: analysis.model.modelVersion,
       strategyVersion: 'KSS-V1-C01',
       predictionStage: analysis.decision === 'BET' ? 'BET' : 'NO_BET',
-      oddsAtPrediction: analysis.side?.offeredOdds,
-      fairMarketProbability: analysis.side?.fairMarketProbability,
-      edge: analysis.side?.edge,
-      ev: analysis.side?.expectedValue,
+      oddsAtPrediction: marketSideMatchesPrediction ? analysis.side?.offeredOdds : undefined,
+      fairMarketProbability: marketSideMatchesPrediction
+        ? analysis.side?.fairMarketProbability
+        : undefined,
+      edge: marketSideMatchesPrediction ? analysis.side?.edge : undefined,
+      ev: marketSideMatchesPrediction ? analysis.side?.expectedValue : undefined,
       betAuthorized: analysis.decision === 'BET',
       betExecuted: false,
     });

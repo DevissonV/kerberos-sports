@@ -175,12 +175,10 @@ export class SqlitePredictionStore implements PredictionStore {
       .prepare('SELECT * FROM model_analyses ORDER BY snapshotAt')
       .all() as Record<string, unknown>[];
     for (const row of rows) {
-      const selection = String(
-        (typeof row.modelSelection === 'string' ? row.modelSelection : undefined) ??
-          (Number(row.probabilityOver25) >= Number(row.probabilityUnder25)
-            ? 'OVER_2_5'
-            : 'UNDER_2_5'),
-      ) as Prediction['selection'];
+      // La predicción del modelo es su probabilidad mayor; `modelSelection` en
+      // snapshots antiguos podía representar el lado elegido por edge/cuota.
+      const selection: Prediction['selection'] =
+        Number(row.probabilityOver25) >= Number(row.probabilityUnder25) ? 'OVER_2_5' : 'UNDER_2_5';
       const decision = String(row.decision);
       const stage =
         String(row.snapshotType) === 'PREANALYSIS'

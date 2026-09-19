@@ -5,6 +5,8 @@
 El ledger separa la calidad predictiva del modelo de la decisión de apostar. Toda predicción
 Poisson O/U 2.5 con evidencia causal queda en SQLite aunque el gate termine en `NO_BET` o nunca
 exista una ejecución manual. No ajusta Poisson, probabilidades, edge, EV, stake ni Risk Gate.
+La `selection` evaluada es siempre el lado con mayor probabilidad del modelo; una selección de
+mercado motivada por cuota/edge no reemplaza esa predicción.
 
 ## Persistencia
 
