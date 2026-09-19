@@ -25,12 +25,24 @@ import type { NotificationPort } from '../notifications/ports/notificationPort';
     },
     {
       provide: ManualLedgerService,
-      inject: [MANUAL_LEDGER_STORE, PRODUCTION_RISK_STATE_STORE, NOTIFICATION_PORT],
+      inject: [MANUAL_LEDGER_STORE, PRODUCTION_RISK_STATE_STORE, NOTIFICATION_PORT, ConfigService],
       useFactory: (
         store: ManualLedgerStore,
         riskStateStore: ProductionRiskStateStore,
         notifications: NotificationPort,
-      ) => new ManualLedgerService(store, riskStateStore, notifications),
+        config: ConfigService<AppConfig>,
+      ) => {
+        const service = new ManualLedgerService(store, riskStateStore, notifications);
+        // H4: REAL_BANKROLL_COP inicializa (INSERT OR IGNORE, idempotente) el
+        // saldo durable del ledger REAL en el arranque del piloto real. Nunca
+        // sobreescribe un saldo existente.
+        const executionMode = config.getOrThrow('executionMode', { infer: true });
+        const realBankrollCop = config.get('realBankrollCop', { infer: true });
+        if (executionMode === 'REAL_MANUAL' && realBankrollCop !== undefined) {
+          service.initializeRealBankroll(realBankrollCop);
+        }
+        return service;
+      },
     },
   ],
   exports: [ManualLedgerService, MANUAL_LEDGER_STORE],

@@ -46,6 +46,8 @@ function riskService(
   const store: ProductionRiskStateStore = {
     getDailyState: () => state,
     recordManualBet: () => undefined,
+    reserveBet: () => true,
+    findManualBet: () => null,
     settleManualBet: () => undefined,
   };
   return new ProductionRiskService(config, store);

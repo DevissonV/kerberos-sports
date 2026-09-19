@@ -9,6 +9,8 @@
  */
 
 import type { BookmakerQuote, OddsPair } from '../domain/concepts';
+import { ODDS_LINE_2_5 } from '../domain/concepts';
+import { overroundOf } from '../domain/oddsIntegrity';
 import type { OddsEvent } from '../domain/matching';
 import type { OddsProvider } from '../ports/oddsProvider';
 import { OddsProviderError } from '../ports/oddsProvider';
@@ -96,13 +98,13 @@ interface RawOutcome {
 
 function forEachOutcome(
   fixture: OddsPapiFixturePayload,
-  visit: (bookmaker: string, outcome: RawOutcome) => void,
+  visit: (bookmaker: string, marketId: string, outcome: RawOutcome) => void,
 ): void {
   for (const [bookmaker, book] of Object.entries(fixture.bookmakerOdds ?? {})) {
-    for (const market of Object.values(book.markets ?? {})) {
+    for (const [marketId, market] of Object.entries(book.markets ?? {})) {
       for (const outcome of Object.values(market.outcomes ?? {})) {
         for (const player of Object.values(outcome.players ?? {})) {
-          visit(bookmaker, player);
+          visit(bookmaker, marketId, player);
         }
       }
     }
@@ -126,34 +128,61 @@ export function detectOverUnder25(outcomeId: string | undefined): 'OVER_2_5' | '
  * Extrae pares over/under 2.5 de un fixture. Prioriza el bookmaker consultado
  * (pinnacle); si no está, usa el primer bookmaker con par completo.
  * Books sin par completo se descartan.
+ *
+ * H1 (KSS-ASTRA-ADVERSARIAL-REVIEW-01): el par SOLO se arma dentro del MISMO
+ * market del proveedor (`bookmaker + marketId`), así un Over fulltime y un Under
+ * firsthalf (mercados distintos) nunca se combinan. La frescura es honesta:
+ * `observedAt` es el instante de observación (`now`), nunca el `startTime` del
+ * fixture; un `changedAt` futuro al instante de decisión rechaza la cuota.
  */
-export function extractOddsPairs(fixture: OddsPapiFixturePayload): OddsPair[] {
-  const quotesByBook = new Map<string, { over?: BookmakerQuote; under?: BookmakerQuote }>();
+export function extractOddsPairs(
+  fixture: OddsPapiFixturePayload,
+  observedAt: Date = new Date(),
+): OddsPair[] {
+  const quotesByBookAndMarket = new Map<
+    string,
+    { marketId: string; over?: BookmakerQuote; under?: BookmakerQuote }
+  >();
 
-  forEachOutcome(fixture, (bookmaker, outcome) => {
+  forEachOutcome(fixture, (bookmaker, marketId, outcome) => {
     if (outcome.active === false) return;
     const selection = detectOverUnder25(outcome.bookmakerOutcomeId);
     if (selection === null) return;
     if (typeof outcome.price !== 'number' || !Number.isFinite(outcome.price) || outcome.price <= 1)
       return;
+    const changedAt = changedAtOf(outcome.changedAt, observedAt);
+    if (changedAt === REJECT_CHANGED_AT) return;
 
-    const entry = quotesByBook.get(bookmaker) ?? {};
+    const key = `${bookmaker}::${marketId}`;
+    const entry = quotesByBookAndMarket.get(key) ?? { marketId };
     const quote: BookmakerQuote = {
       bookmaker,
       selection,
       decimalOdds: outcome.price,
-      capturedAt: new Date(outcome.changedAt ?? fixture.startTime),
+      marketId,
+      observedAt,
+      changedAt,
+      capturedAt: observedAt,
     };
     if (selection === 'OVER_2_5') entry.over = quote;
     else entry.under = quote;
-    quotesByBook.set(bookmaker, entry);
+    quotesByBookAndMarket.set(key, entry);
   });
 
   const pairs: OddsPair[] = [];
-  for (const [bookmaker, entry] of quotesByBook) {
-    if (entry.over !== undefined && entry.under !== undefined) {
-      pairs.push({ fixtureId: fixture.fixtureId, bookmaker, over: entry.over, under: entry.under });
-    }
+  for (const entry of quotesByBookAndMarket.values()) {
+    if (entry.over === undefined || entry.under === undefined) continue;
+    const pair: OddsPair = {
+      fixtureId: fixture.fixtureId,
+      bookmaker: entry.over.bookmaker,
+      line: ODDS_LINE_2_5,
+      over: entry.over,
+      under: entry.under,
+    };
+    // Par matemáticamente imposible (overround < 1 implicaría arbitraje
+    // garantizado): se rechaza, sin imponer umbrales adicionales sin evidencia.
+    if (overroundOf(pair) < 1) continue;
+    pairs.push(pair);
   }
   // Pinnacle primero: es el bookmaker consultado en batch.
   pairs.sort((a, b) => {
@@ -162,6 +191,23 @@ export function extractOddsPairs(fixture: OddsPapiFixturePayload): OddsPair[] {
     return aPref - bPref;
   });
   return pairs;
+}
+
+const REJECT_CHANGED_AT = Symbol('reject');
+
+/**
+ * `changedAt` del proveedor: un timestamp futuro al instante de observación
+ * rechaza la cuota (evidencia no confiable); uno ilegible se trata como ausente.
+ */
+function changedAtOf(
+  raw: string | undefined,
+  observedAt: Date,
+): Date | undefined | typeof REJECT_CHANGED_AT {
+  if (raw === undefined) return undefined;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  if (parsed.getTime() > observedAt.getTime()) return REJECT_CHANGED_AT;
+  return parsed;
 }
 
 /**
@@ -218,6 +264,7 @@ export class OddsPapiAdapter implements OddsProvider {
   private async fetchPairsForBookmaker(
     tournamentIds: readonly number[],
     bookmaker: string,
+    observedAt: Date,
   ): Promise<OddsPair[]> {
     // La API exige exactamente un bookmaker por request; el pacing global hace el cooldown.
     const tournamentBatches: number[][] = [];
@@ -232,19 +279,22 @@ export class OddsPapiAdapter implements OddsProvider {
         oddsFormat: 'decimal',
       });
       const fixtures = assertArray(payload);
-      pairs.push(...fixtures.flatMap((fixture) => extractOddsPairs(fixture)));
+      pairs.push(...fixtures.flatMap((fixture) => extractOddsPairs(fixture, observedAt)));
     }
     return pairs;
   }
 
   /**
-   * Par O/U 2.5 por fixture: Pinnacle primero; si un fixture no tiene par
-   * Pinnacle completo y válido, se intenta Bet365 SOLO para ese fixture (nunca
-   * se mezcla Over de un bookmaker con Under de otro: cada `OddsPair` ya viene
-   * de un único bookmaker por construcción de `extractOddsPairs`).
+   * Par O/U 2.5 por fixture: Pinnacle primero; si un fixture NO SOLICITADO tenía
+   * par Pinnacle y otro solicitado no, el fallback Bet365 SIEMPRE se intenta para
+   * el fixture solicitado que falta (M2: la cuenta de faltantes es la intersección
+   * con los fixtures solicitados, nunca una resta de tamaños de sets). Nunca se
+   * mezcla Over de un bookmaker con Under de otro: cada `OddsPair` ya viene de un
+   * único bookmaker y un único market por construcción de `extractOddsPairs`.
    */
   async overUnderPairs(events: readonly OddsEvent[]): Promise<OddsPair[]> {
     if (events.length === 0) return [];
+    const observedAt = new Date();
     const tournamentIds = [
       ...new Set(
         events
@@ -254,18 +304,25 @@ export class OddsPapiAdapter implements OddsProvider {
     ];
     if (tournamentIds.length === 0) return [];
 
-    const primaryPairs = await this.fetchPairsForBookmaker(tournamentIds, PRIMARY_BOOKMAKER);
+    const primaryPairs = await this.fetchPairsForBookmaker(
+      tournamentIds,
+      PRIMARY_BOOKMAKER,
+      observedAt,
+    );
+    const eventIds = events.map((event) => event.id);
     const fixturesWithPrimary = new Set(primaryPairs.map((pair) => pair.fixtureId));
-    const eventIds = new Set(events.map((event) => event.id));
-    const eventsMissingPrimary = eventIds.size - fixturesWithPrimary.size;
-    if (eventsMissingPrimary <= 0) return primaryPairs;
+    const requestedMissingPrimary = eventIds.filter((id) => !fixturesWithPrimary.has(id));
+    if (requestedMissingPrimary.length === 0) return primaryPairs;
 
     let fallbackPairs: OddsPair[] = [];
     try {
-      const allFallbackPairs = await this.fetchPairsForBookmaker(tournamentIds, FALLBACK_BOOKMAKER);
-      fallbackPairs = allFallbackPairs.filter(
-        (pair) => eventIds.has(pair.fixtureId) && !fixturesWithPrimary.has(pair.fixtureId),
+      const allFallbackPairs = await this.fetchPairsForBookmaker(
+        tournamentIds,
+        FALLBACK_BOOKMAKER,
+        observedAt,
       );
+      const missingIds = new Set(requestedMissingPrimary);
+      fallbackPairs = allFallbackPairs.filter((pair) => missingIds.has(pair.fixtureId));
     } catch {
       // Fallback best-effort: si Bet365 falla, el scan continua solo con Pinnacle.
       fallbackPairs = [];

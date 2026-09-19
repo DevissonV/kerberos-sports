@@ -54,6 +54,13 @@ export const environmentSchema = z
     PRODUCTION_RISK_ENABLE_ELEVATED: refinementBoolean,
     PRODUCTION_RISK_ENABLE_HIGH: refinementBoolean,
     PRODUCTION_RISK_ACTIVE_TIER: z.enum(['BASE', 'ELEVATED', 'HIGH']).default('BASE'),
+    // H4: límites REAL_* del piloto manual (obligatorios en REAL_MANUAL vía
+    // configuration.ts; aquí solo se valida su forma si están presentes).
+    REAL_BANKROLL_COP: z.coerce.number().int().positive().optional(),
+    REAL_MAX_STAKE_COP: z.coerce.number().int().positive().optional(),
+    REAL_MAX_DAILY_EXPOSURE_COP: z.coerce.number().int().positive().optional(),
+    REAL_MAX_DAILY_LOSS_COP: z.coerce.number().int().positive().optional(),
+    REAL_MAX_OPEN_BETS: z.coerce.number().int().nonnegative().optional(),
   })
   .superRefine((env, context) => {
     if (!env.PAPER_ONLY) {

@@ -34,8 +34,23 @@ function makePair(
   return {
     fixtureId: '9001',
     bookmaker,
-    over: { bookmaker, selection: 'OVER_2_5', decimalOdds: over, capturedAt },
-    under: { bookmaker, selection: 'UNDER_2_5', decimalOdds: under, capturedAt },
+    line: 2.5,
+    over: {
+      bookmaker,
+      selection: 'OVER_2_5',
+      decimalOdds: over,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
+    under: {
+      bookmaker,
+      selection: 'UNDER_2_5',
+      decimalOdds: under,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
   };
 }
 

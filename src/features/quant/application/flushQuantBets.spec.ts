@@ -34,8 +34,23 @@ function underPairFor(fixtureId: string, bookmaker = 'pinnacle'): OddsPair {
   return {
     fixtureId,
     bookmaker,
-    over: { bookmaker, selection: 'OVER_2_5', decimalOdds: 1 / rawOver, capturedAt },
-    under: { bookmaker, selection: 'UNDER_2_5', decimalOdds: 1 / rawUnder, capturedAt },
+    line: 2.5,
+    over: {
+      bookmaker,
+      selection: 'OVER_2_5',
+      decimalOdds: 1 / rawOver,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
+    under: {
+      bookmaker,
+      selection: 'UNDER_2_5',
+      decimalOdds: 1 / rawUnder,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
   };
 }
 

@@ -152,7 +152,8 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).not.toContain('─────────────');
     expect(message).toContain('📅 17 Sep 2026 · 🕐 2:30 p. m.');
     expect(message).toContain('👀 Preanálisis · Seguimiento activo');
-    const warningMatches = message.match(/Todavía no hay apuestas aprobadas\./g) ?? [];
+    const warningMatches =
+      message.match(/Todavía no hay apuestas con autorización del Risk Gate\./g) ?? [];
     expect(warningMatches).toHaveLength(1);
     expect(message).not.toContain('NO APOSTAR TODAVÍA');
     expect(message).toContain('1️⃣ Málaga vs Villarreal');
@@ -331,8 +332,7 @@ describe('formatRefinementHeartbeat', () => {
       counters: BASE_COUNTERS,
     });
     expect(message).not.toContain('PARTIDOS A SEGUIR');
-    expect(message).not.toContain('Todavía no son apuestas aprobadas');
-    expect(message).toContain('⚠️ Todavía no hay apuestas aprobadas.');
+    expect(message).toContain('⚠️ Todavía no hay apuestas con autorización del Risk Gate.');
   });
 
   it('no repite seguimientos cerrados en el heartbeat', () => {

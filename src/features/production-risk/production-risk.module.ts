@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppConfig } from '../../shared/config/configuration';
 import { SqliteProductionRiskStateStore } from './adapters/sqliteProductionRiskStateStore';
-import { productionRiskConfigFromValues } from './application/productionRiskConfig';
+import { productionRiskConfigForExecution } from './application/productionRiskConfig';
 import { ProductionRiskService } from './application/productionRiskService';
 import { PRODUCTION_RISK_STATE_STORE } from './ports/productionRiskStateStore';
 
@@ -23,13 +23,20 @@ import { PRODUCTION_RISK_STATE_STORE } from './ports/productionRiskStateStore';
       useFactory: (
         configService: ConfigService<AppConfig>,
         stateStore: SqliteProductionRiskStateStore,
-      ) =>
-        new ProductionRiskService(
-          productionRiskConfigFromValues(
-            configService.getOrThrow('productionRisk', { infer: true }),
-          ),
-          stateStore,
-        ),
+      ) => {
+        // H4: los límites REAL_* alimentan el gate cuando el piloto real está activo.
+        const effectiveConfig = productionRiskConfigForExecution(
+          configService.getOrThrow('productionRisk', { infer: true }),
+          configService.getOrThrow('executionMode', { infer: true }),
+          {
+            realMaxStakeCop: configService.get('realMaxStakeCop', { infer: true }),
+            realMaxDailyExposureCop: configService.get('realMaxDailyExposureCop', { infer: true }),
+            realMaxDailyLossCop: configService.get('realMaxDailyLossCop', { infer: true }),
+            realMaxOpenBets: configService.get('realMaxOpenBets', { infer: true }),
+          },
+        );
+        return new ProductionRiskService(effectiveConfig, stateStore);
+      },
     },
   ],
   exports: [ProductionRiskService, PRODUCTION_RISK_STATE_STORE],

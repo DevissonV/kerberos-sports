@@ -29,19 +29,39 @@ export interface Fixture {
 /** Selección de un mercado Over/Under 2.5. */
 export type OverUnderSelection = 'OVER_2_5' | 'UNDER_2_5';
 
-/** Cuota decimal de una selección concreta, capturada por un bookmaker. */
+/** Línea del total O/U de la cohorte KSS-V1-C01. */
+export const ODDS_LINE_2_5 = 2.5 as const;
+
+/**
+ * Cuota decimal de una selección concreta, observada por un bookmaker.
+ *
+ * H1 (KSS-ASTRA-ADVERSARIAL-REVIEW-01): la identidad del mercado es explícita
+ * (`marketId` del proveedor) para que un par NUNCA mezcle mercados/periodos
+ * distintos (p. ej. Over fulltime con Under firsthalf). La frescura se registra
+ * con el instante en que KERBEROS observó la cuota (`observedAt`) y, cuando el
+ * provider la entrega, con su metadata `changedAt`: jamás se sustituye por el
+ * `startTime` del fixture.
+ */
 export interface BookmakerQuote {
   bookmaker: string;
   selection: OverUnderSelection;
   decimalOdds: number;
-  /** Momento de captura de la cuota (UTC). */
+  /** Identificador del market del proveedor: OVER y UNDER comparten el mismo. */
+  marketId: string;
+  /** Instante en que Kerberos recibió/observó la cuota (UTC). */
+  observedAt: Date;
+  /** `changedAt` del proveedor si la entrega; se rechaza si es futura a decisión. */
+  changedAt?: Date;
+  /** Alias de compatibilidad: igual a `observedAt` en los adapters vigentes. */
   capturedAt: Date;
 }
 
-/** Par over/under de un mismo bookmaker para un fixture. */
+/** Par over/under de un mismo bookmaker, mismo market y misma observación. */
 export interface OddsPair {
   fixtureId: string;
   bookmaker: string;
+  /** Línea total del par: siempre 2.5 en esta cohorte. */
+  line: typeof ODDS_LINE_2_5;
   over: BookmakerQuote;
   under: BookmakerQuote;
 }

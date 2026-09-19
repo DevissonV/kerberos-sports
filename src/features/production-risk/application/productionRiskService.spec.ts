@@ -7,6 +7,8 @@ describe('ProductionRiskService', () => {
     const stateStore: ProductionRiskStateStore = {
       getDailyState: () => ({ betsToday: 0, dailyExposureCop: 0, dailyLossCop: 0, openBets: 0 }),
       recordManualBet: jest.fn(),
+      reserveBet: jest.fn(),
+      findManualBet: jest.fn(() => null),
       settleManualBet: jest.fn(),
     };
     const service = new ProductionRiskService(DEFAULT_PRODUCTION_RISK_CONFIG, stateStore);
@@ -26,6 +28,8 @@ describe('ProductionRiskService', () => {
         throw new Error('SQLite unavailable');
       },
       recordManualBet: jest.fn(),
+      reserveBet: jest.fn(),
+      findManualBet: jest.fn(() => null),
       settleManualBet: jest.fn(),
     };
     const service = new ProductionRiskService(DEFAULT_PRODUCTION_RISK_CONFIG, stateStore);

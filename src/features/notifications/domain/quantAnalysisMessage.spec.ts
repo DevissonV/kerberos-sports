@@ -17,16 +17,21 @@ const analysis: QuantFixtureAnalysis = {
   pair: {
     fixtureId: '1',
     bookmaker: 'pinnacle',
+    line: 2.5,
     over: {
       bookmaker: 'pinnacle',
       selection: 'OVER_2_5',
       decimalOdds: 1.86,
+      marketId: '1010',
+      observedAt: new Date(),
       capturedAt: new Date(),
     },
     under: {
       bookmaker: 'pinnacle',
       selection: 'UNDER_2_5',
       decimalOdds: 1.98,
+      marketId: '1010',
+      observedAt: new Date(),
       capturedAt: new Date(),
     },
   },

@@ -110,15 +110,27 @@ describe('SqliteManualLedgerStore', () => {
     }
   });
 
-  it('RECOMMENDED no afecta el bankroll real y puede pasar a ejecución manual', async () => {
-    const { store, service } = createService();
+  it('RECOMMENDED no afecta el bankroll real y puede pasar a ejecución manual con reserva de riesgo', async () => {
+    const { store, riskStore, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
       expect(service.recommend('rec-1', NOW).status).toBe('RECOMMENDED');
       expect(service.realBankrollCop()).toBe(100_000);
+      // El Risk Gate debe haber reservado antes (#6) para que una ejecución
+      // Kerberos-AUTHORIZED sea posible: fail-closed sin reserva.
+      expect(
+        riskStore.reserveBet({
+          id: 'rec-1',
+          day: '2026-09-16',
+          stakeCop: 10_000,
+          operatorApprovalId: 'risk-gate-test',
+          selection: 'OVER_2_5',
+        }),
+      ).toBe(true);
       expect((await execute(service)).status).toBe('EXECUTED_MANUALLY');
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
+      riskStore.close();
       store.close();
     }
   });

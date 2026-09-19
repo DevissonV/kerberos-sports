@@ -1,4 +1,8 @@
-import type { ManualBetResult, ManualLedgerEntry } from '../domain/manualLedger';
+import type {
+  ManualBetResult,
+  ManualLedgerEntry,
+  ManualLedgerEntrySource,
+} from '../domain/manualLedger';
 
 export const MANUAL_LEDGER_STORE = Symbol('ManualLedgerStore');
 
@@ -20,6 +24,8 @@ export interface ExecuteManualBetInput {
   createdAt: Date;
   /** Identidad completa del fixture: el registro real es incompleto sin ella. */
   identity: ManualFixtureIdentity;
+  /** Origen del registro; el servicio lo decide (Kerberos vs externo). */
+  entrySource?: ManualLedgerEntrySource;
 }
 
 export interface SettleManualBetInput {

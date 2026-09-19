@@ -53,7 +53,22 @@ export interface RefinementHeartbeatApprovedBet extends CompetitionIdentity {
   edge?: number;
   expectedValue?: number;
   riskGate?: string;
+  /** SIEMPRE COP real del Risk Gate; nunca se reporta el stake PAPER como COP. */
   stakeCop?: number;
+}
+
+/**
+ * Señal PAPER (H5): NO pasa el Risk Gate real. Su stake es una unidad de
+ * simulación (bankroll PAPER), jamás se muestra como COP autorizado.
+ */
+export interface RefinementHeartbeatPaperBet extends CompetitionIdentity {
+  home: string;
+  away: string;
+  kickoffAt?: Date;
+  selection: string;
+  probability: number;
+  /** Stake en unidades del bankroll PAPER (simulación, no COP). */
+  stakeUnits: number;
 }
 
 export interface RefinementHeartbeatNoBetEntry extends CompetitionIdentity {
@@ -83,6 +98,8 @@ export interface RefinementHeartbeatInput {
     decisionAt?: Date;
   } & CompetitionIdentity;
   approvedBets?: readonly RefinementHeartbeatApprovedBet[];
+  /** Señales PAPER del tick: visibles, pero NUNCA con lenguaje de autorización. */
+  paperSignals?: readonly RefinementHeartbeatPaperBet[];
   noBetEntries?: readonly RefinementHeartbeatNoBetEntry[];
   bets?: number;
   noBets?: number;
@@ -232,6 +249,28 @@ function formatClosedFollowup(entry: RefinementHeartbeatClosedEntry): string[] {
   ];
 }
 
+/**
+ * Señal PAPER: NO autorizada para ejecución. El stake se muestra en unidades de
+ * simulación, nunca como COP ni como "stake autorizado".
+ */
+function formatPaperSignal(entry: RefinementHeartbeatPaperBet): string[] {
+  return [
+    '📄 SEÑAL PAPER',
+    ...formatFixtureIdentity({
+      homeTeam: entry.home,
+      awayTeam: entry.away,
+      league: entry.league,
+      leagueId: entry.leagueId,
+      country: entry.country,
+      kickoffAt: entry.kickoffAt,
+    }),
+    '',
+    `${humanSelection(entry.selection)} · ${(entry.probability * 100).toFixed(1)}%`,
+    `🧮 Stake simulación: ${entry.stakeUnits.toFixed(2)} unidades (PAPER, no COP)`,
+    '🔒 NO AUTORIZADA: pendiente del Risk Gate real.',
+  ];
+}
+
 export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): string {
   const totalDetected = input.byLeague.reduce((sum, league) => sum + league.fixturesDetected, 0);
   const approvedBets = input.approvedBets ?? [];
@@ -355,6 +394,15 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
       );
     });
   }
+  const paperEntries = input.paperSignals ?? [];
+  if (paperEntries.length > 0) {
+    lines.push('', '📄 APUESTAS PAPER · SIN AUTORIZACIÓN REAL');
+    paperEntries.slice(0, 5).forEach((entry, index) => {
+      if (index > 0) lines.push(FIXTURE_SEPARATOR, '');
+      lines.push(...formatPaperSignal(entry));
+    });
+    if (paperEntries.length > 5) lines.push(`• +${paperEntries.length - 5} señales adicionales`);
+  }
   const closedFollowups = input.closedFollowups ?? [];
   if (closedFollowups.length > 0) {
     lines.push('', '🏁 SEGUIMIENTO CERRADO');
@@ -368,7 +416,8 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
   if (input.insufficientData !== undefined && input.insufficientData > 0)
     lines.push('', `📊 Datos insuficientes: ${input.insufficientData}`);
 
-  if ((input.bets ?? 0) === 0) lines.push('', '⚠️ Todavía no hay apuestas aprobadas.');
+  if ((input.bets ?? 0) === 0)
+    lines.push('', '⚠️ Todavía no hay apuestas con autorización del Risk Gate.');
 
   if (input.budgetBlocked !== undefined && input.budgetBlocked > 0) {
     lines.push('', '⚠️ INCIDENCIAS', `Análisis parcial: límite temporal de consultas`);

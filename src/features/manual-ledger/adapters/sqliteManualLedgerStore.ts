@@ -23,7 +23,7 @@ const MIGRATION_ID = 'KS-03-MANUAL-LEDGER-01';
 const COLUMNS = `recommendationId, executionId, status, bookmaker, executedOdds, executedStakeCop,
   executedAt, result, grossReturnCop, netPnlCop, bankrollBeforeCop, bankrollAfterCop, closingOdds,
   clv, createdAt, updatedAt, homeTeam, awayTeam, competition, kickoffAt, selection, executionMode,
-  settledAt, telegramNotifiedAt, settledNotifiedAt`;
+  settledAt, telegramNotifiedAt, settledNotifiedAt, entrySource`;
 
 /** Adaptador SQLite local del ledger real, deliberadamente separado de PaperBetStore. */
 export class SqliteManualLedgerStore implements ManualLedgerStore {
@@ -95,7 +95,7 @@ export class SqliteManualLedgerStore implements ManualLedgerStore {
            (:recommendationId, :executionId, 'EXECUTED_MANUALLY', :bookmaker, :executedOdds,
             :executedStakeCop, :executedAt, NULL, NULL, NULL, :bankrollBeforeCop, :bankrollAfterCop,
             NULL, NULL, :createdAt, :updatedAt, :homeTeam, :awayTeam, :competition, :kickoffAt,
-            :selection, 'REAL_MANUAL', NULL, NULL, NULL)`,
+            :selection, 'REAL_MANUAL', NULL, NULL, NULL, :entrySource)`,
           )
           .run({
             recommendationId: input.recommendationId,
@@ -113,6 +113,7 @@ export class SqliteManualLedgerStore implements ManualLedgerStore {
             competition: input.identity.competition,
             kickoffAt: input.identity.kickoffAt.toISOString(),
             selection: input.identity.selection,
+            entrySource: input.entrySource ?? 'EXTERNAL_MANUAL_ENTRY',
           });
       } else {
         this.db
@@ -122,7 +123,8 @@ export class SqliteManualLedgerStore implements ManualLedgerStore {
            executedAt = :executedAt, bankrollBeforeCop = :bankrollBeforeCop,
            bankrollAfterCop = :bankrollAfterCop, updatedAt = :updatedAt,
            homeTeam = :homeTeam, awayTeam = :awayTeam, competition = :competition,
-           kickoffAt = :kickoffAt, selection = :selection, executionMode = 'REAL_MANUAL'
+           kickoffAt = :kickoffAt, selection = :selection, executionMode = 'REAL_MANUAL',
+           entrySource = :entrySource
            WHERE recommendationId = :recommendationId`,
           )
           .run({
@@ -140,6 +142,7 @@ export class SqliteManualLedgerStore implements ManualLedgerStore {
             competition: input.identity.competition,
             kickoffAt: input.identity.kickoffAt.toISOString(),
             selection: input.identity.selection,
+            entrySource: input.entrySource ?? 'EXTERNAL_MANUAL_ENTRY',
           });
       }
       this.db
@@ -263,6 +266,7 @@ export class SqliteManualLedgerStore implements ManualLedgerStore {
       ['settledAt', 'settledAt TEXT'],
       ['telegramNotifiedAt', 'telegramNotifiedAt TEXT'],
       ['settledNotifiedAt', 'settledNotifiedAt TEXT'],
+      ['entrySource', 'entrySource TEXT'],
     ];
     for (const [name, declaration] of additive) {
       if (!known.has(name))
@@ -310,6 +314,10 @@ function deserialize(row: Record<string, unknown>): ManualLedgerEntry {
     kickoffAt: optionalDate('kickoffAt'),
     selection: optionalText('selection'),
     executionMode: row.executionMode === null ? undefined : (row.executionMode as 'REAL_MANUAL'),
+    entrySource:
+      row.entrySource === null || row.entrySource === undefined
+        ? undefined
+        : (row.entrySource as ManualLedgerEntry['entrySource']),
     bookmaker: optionalText('bookmaker'),
     executedOdds: optionalNumber('executedOdds'),
     executedStakeCop: optionalNumber('executedStakeCop'),

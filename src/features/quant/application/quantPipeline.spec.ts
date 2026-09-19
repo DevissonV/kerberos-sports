@@ -81,8 +81,23 @@ function pairFrom(
   return {
     fixtureId,
     bookmaker,
-    over: { bookmaker, selection: 'OVER_2_5', decimalOdds: oddsOver, capturedAt },
-    under: { bookmaker, selection: 'UNDER_2_5', decimalOdds: oddsUnder, capturedAt },
+    line: 2.5,
+    over: {
+      bookmaker,
+      selection: 'OVER_2_5',
+      decimalOdds: oddsOver,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
+    under: {
+      bookmaker,
+      selection: 'UNDER_2_5',
+      decimalOdds: oddsUnder,
+      marketId: '1010',
+      observedAt: capturedAt,
+      capturedAt,
+    },
   };
 }
 

@@ -11,6 +11,9 @@ import { formatRefinementHeartbeat } from '../../notifications/domain/refinement
 import { REFINEMENT_STORE } from '../ports/refinementStore';
 import type { RefinementCounters, RefinementStore } from '../ports/refinementStore';
 import { QuantScanService } from './quantScanService';
+import { ProductionRiskService } from '../../production-risk/application/productionRiskService';
+import { recommendationFromQuantBet } from './quantRecommendation';
+import { classifyPaperBetAuthorization } from './paperBetAuthorization';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { runModelAnalysis } from '../domain/modelAnalysis';
 import { marketLanguage } from '../../notifications/domain/marketLanguage';
@@ -39,6 +42,7 @@ import { logger } from '../../../shared/logging/logger';
 import type {
   RefinementHeartbeatApprovedBet,
   RefinementHeartbeatNoBetEntry,
+  RefinementHeartbeatPaperBet,
 } from '../../notifications/domain/refinementHeartbeat';
 import { PredictionLedgerService } from '../../prediction-ledger/application/predictionLedgerService';
 
@@ -107,6 +111,8 @@ export interface RefinementTickSummary {
   oddsUnavailable?: number;
   quantCandidates: number;
   paperBetsCreated: number;
+  /** Solo apuestas con Risk Gate real aprobado aumentan este contador (H5). */
+  authorizedBets?: number;
   lunaSelected: number;
   lunaCalls: number;
   lunaCacheHits: number;
@@ -283,6 +289,8 @@ export class RefinementService {
     ),
     @Optional()
     private readonly predictionLedger?: PredictionLedgerService,
+    @Optional()
+    private readonly productionRisk?: ProductionRiskService,
   ) {}
 
   async runTick(
@@ -364,6 +372,8 @@ export class RefinementService {
     }[] = [];
     let approvedBets: RefinementHeartbeatApprovedBet[] = [];
     let noBetEntries: RefinementHeartbeatNoBetEntry[] = [];
+    // Claims T-6 activos en este tick: si el scan falla, se liberan para el retry.
+    let claimedThisTick: { fixture: Fixture; decisionAt: Date }[] = [];
     try {
       const settlement = await this.settlement.settleOpenBets();
       tick.settlements = settlement.settled;
@@ -595,6 +605,7 @@ export class RefinementService {
             entry.decisionAt,
           ),
         );
+      claimedThisTick = pending;
       if (pending.length > 0) {
         tick.marketAnalysisAttempted = pending.length;
         for (const entry of pending) {
@@ -747,29 +758,77 @@ export class RefinementService {
         tick.lunaCacheHits = result.luna.cacheHits;
         tick.paperBetsCreated = result.paperBetsCreated;
         tick.quantCandidates = result.result.quantCandidates;
+        // #13: la decisión quedó registrada (BET/NO_BET o terminal NO_ODDS): el
+        // claim pasa a COMPLETED y no se vuelve a procesar el mismo fixture+decisionAt.
+        for (const entry of pending) {
+          this.refinementStore.completeDecisionSnapshot(
+            PROTOCOL_COHORT_ID,
+            entry.fixture.id,
+            entry.decisionAt,
+          );
+        }
+        claimedThisTick = [];
       }
     } catch (cause) {
+      // H7/#14: un fixture cuyo claim se consumió pero nunca se procesó (fallo del
+      // proveedor, timeout, persistencia) se LIBERA para retry en el próximo tick:
+      // ninguna decisión puede desaparecer silenciosamente.
+      for (const entry of claimedThisTick) {
+        try {
+          this.refinementStore.failDecisionSnapshot(
+            PROTOCOL_COHORT_ID,
+            entry.fixture.id,
+            entry.decisionAt,
+          );
+        } catch {
+          // La liberación es best-effort; el lease expira solo si persiste.
+        }
+      }
+      claimedThisTick = [];
       markError(tick, cause, 'ERROR');
     }
 
     tick.openPaperBets = this.bets.listByStatus('OPEN').length;
+    const paperSignals: RefinementHeartbeatPaperBet[] = [];
     if (tick.paperBetsCreated > 0) {
-      approvedBets = this.bets
-        .listByStatus('OPEN')
-        .filter((bet) => bet.createdAt.getTime() >= now.getTime())
-        .map((bet) => ({
+      // H5: una PaperBet OPEN jamás equivale a autorización de ejecución. Se
+      // marca REAL_AUTHORIZED_BET SOLO con decisión explícita del Risk Gate real,
+      // y el stake COP visible proviene del riskDecision, no del stake PAPER.
+      const { authorized, paperOnly } = classifyPaperBetAuthorization(
+        this.bets.listByStatus('OPEN').filter((bet) => bet.createdAt.getTime() >= now.getTime()),
+        (bet) =>
+          this.productionRisk?.applyToRecommendationWithReservation(
+            recommendationFromQuantBet(bet, now),
+            day,
+            bet.id,
+          ) ?? null,
+      );
+      approvedBets = authorized.map(({ bet, riskDecision }) => ({
+        home: bet.homeTeam,
+        away: bet.awayTeam,
+        league: bet.league,
+        kickoffAt: bet.kickoff,
+        selection: bet.selection,
+        modelProbability: bet.modelProbability,
+        offeredOdds: bet.placedOdds,
+        minimumAcceptableOdds: bet.minimumAcceptableOdds,
+        edge: bet.edge,
+        expectedValue: bet.expectedValue,
+        riskGate: riskDecision.status === 'APPROVED' ? 'APROBADO' : 'APROBADO CON REDUCCIÓN',
+        stakeCop: riskDecision.stakeCop,
+      }));
+      tick.authorizedBets = approvedBets.length;
+      for (const bet of paperOnly) {
+        paperSignals.push({
           home: bet.homeTeam,
           away: bet.awayTeam,
           league: bet.league,
           kickoffAt: bet.kickoff,
           selection: bet.selection,
-          modelProbability: bet.modelProbability,
-          offeredOdds: bet.placedOdds,
-          minimumAcceptableOdds: bet.minimumAcceptableOdds,
-          edge: bet.edge,
-          expectedValue: bet.expectedValue,
-          stakeCop: bet.stake,
-        }));
+          probability: bet.modelProbability,
+          stakeUnits: bet.stake,
+        });
+      }
     }
     tick.oddsPapiRequests = this.scanning.oddsPapiRequests() - beforeOdds;
     tick.oddsRequested = tick.oddsPapiRequests;
@@ -814,7 +873,9 @@ export class RefinementService {
           counters: countersForHeartbeat(tick),
           openBets: tick.openPaperBets,
           fixturesModelled: tick.modelledFixtures,
-          bets: tick.paperBetsCreated,
+          // H5: solo las REAL_AUTHORIZED_BET (aprobadas por el Risk Gate) cuentan
+          // y se presentan como autorizadas; las señales PAPER van en paperSignals.
+          bets: tick.authorizedBets ?? 0,
           noBets: tick.noBets,
           insufficientData: tick.insufficientData,
           oddsUnavailable: tick.oddsUnavailable,
@@ -828,6 +889,7 @@ export class RefinementService {
           radar: radar.map((entry) => ({ ...entry, experimental: entry.experimental })),
           closedFollowups: this.closedFollowups(now, radar),
           approvedBets,
+          paperSignals,
           noBetEntries,
           todayRawFixtures: tick.todayRawFixtures,
           todayModelEnabled: tick.todayModelEnabled,

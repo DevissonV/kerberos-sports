@@ -1,11 +1,20 @@
 /** Dominio del registro de apuestas que un operador ya ejecutó por su cuenta. */
 export type ManualLedgerStatus = 'RECOMMENDED' | 'EXECUTED_MANUALLY' | 'SETTLED';
 export type ManualBetResult = 'WIN' | 'LOSS' | 'PUSH' | 'VOID';
+/**
+ * Origen del registro: KERBEROS_AUTHORIZED = la apuesta corresponde a una
+ * recomendación Kerberos con autorización del Risk Gate; EXTERNAL_MANUAL_ENTRY =
+ * registro contable de una apuesta fuera de Kerberos (nunca se cuenta como
+ * "autorizada por el bot").
+ */
+export type ManualLedgerEntrySource = 'KERBEROS_AUTHORIZED' | 'EXTERNAL_MANUAL_ENTRY';
 
 export interface ManualLedgerEntry {
   recommendationId: string;
   executionId?: string;
   status: ManualLedgerStatus;
+  /** Origen del registro (KERBEROS vs externo); obligatorio para apuestas nuevas. */
+  entrySource?: ManualLedgerEntrySource;
   /** Identidad del fixture: obligatoria para registrar una ejecución real (fail-closed). */
   homeTeam?: string;
   awayTeam?: string;
