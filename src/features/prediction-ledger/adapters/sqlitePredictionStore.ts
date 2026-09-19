@@ -1,7 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync, type DatabaseSync as Db } from 'node:sqlite';
-import { predictionIdOf, primaryPriority, type Prediction } from '../domain/prediction';
+import {
+  diagnoseAttribution,
+  predictionIdOf,
+  primaryPriority,
+  type Prediction,
+} from '../domain/prediction';
 import type { PredictionStore } from '../ports/predictionStore';
 
 const COLUMNS = `predictionId, fixtureId, league, homeTeam, awayTeam, kickoffAt, createdAt,
@@ -37,6 +42,7 @@ export class SqlitePredictionStore implements PredictionStore {
       );
     `);
     this.recoverExistingAnalyses();
+    this.backfillLegacyAttribution();
   }
 
   save(input: Omit<Prediction, 'predictionId' | 'isPrimary' | 'result'>): Prediction {
@@ -147,6 +153,79 @@ export class SqlitePredictionStore implements PredictionStore {
 
   close(): void {
     this.db.close();
+  }
+
+  /**
+   * Backfill idempotente de atribución: filas persistidas por código antiguo pueden
+   * tener `selection` = lado de mercado (por cuota/edge) con la probabilidad del lado
+   * MENOR (p. ej. UNDER_2_5 @34.2% cuando el modelo daba OVER 65.8%). Se reconstruyen
+   * desde las snapshots crudas de `model_analyses` del mismo archivo; si no hay
+   * evidencia y probability < 0.50 se marca UNKNOWN (excluida de métricas). Nunca
+   * inventa datos ni recalcula probabilidades.
+   */
+  backfillLegacyAttribution(): { corrected: number; unknown: number } {
+    // Última snapshot cruda del modelo por fixture (más reciente antes del kickoff si
+    // hay varias; la última en la tabla es la de decisión T-6). La tabla puede no
+    // existir aún (bases nuevas): entonces no hay evidencia causal local y solo las
+    // filas con probability < 0.50 se marcan UNKNOWN.
+    const hasModelAnalyses =
+      this.db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_analyses'")
+        .get() !== undefined;
+    const evidenceByFixture = new Map<string, { over: number; under: number }>();
+    if (hasModelAnalyses) {
+      for (const row of this.db
+        .prepare('SELECT * FROM model_analyses ORDER BY snapshotAt')
+        .all() as Record<string, unknown>[]) {
+        evidenceByFixture.set(String(row['fixtureId']), {
+          over: Number(row['probabilityOver25']),
+          under: Number(row['probabilityUnder25']),
+        });
+      }
+    }
+    let corrected = 0;
+    let unknown = 0;
+    for (const pred of this.list()) {
+      const evidence = evidenceByFixture.get(pred.fixtureId);
+      const fix = diagnoseAttribution(
+        {
+          selection: pred.selection,
+          modelProbability: pred.modelProbability,
+          result: pred.result,
+          finalScoreHome: pred.finalScoreHome,
+          finalScoreAway: pred.finalScoreAway,
+        },
+        evidence === undefined
+          ? undefined
+          : { probabilityOver: evidence.over, probabilityUnder: evidence.under },
+      );
+      if (fix.type === 'KEEP') continue;
+      if (fix.type === 'UNKNOWN') {
+        this.db
+          .prepare(`UPDATE predictions SET result='UNKNOWN' WHERE predictionId=?`)
+          .run(pred.predictionId);
+        unknown += 1;
+        continue;
+      }
+      // REBUILD: mismos valores recalculados; histórico de settledAt se conserva.
+      const totalGoals =
+        pred.finalScoreHome !== undefined && pred.finalScoreAway !== undefined
+          ? pred.finalScoreHome + pred.finalScoreAway
+          : null;
+      this.db
+        .prepare(
+          'UPDATE predictions SET selection=?, modelProbability=?, result=?, totalGoals=? WHERE predictionId=?',
+        )
+        .run(
+          fix.selection,
+          fix.modelProbability,
+          fix.result ?? 'PENDING',
+          totalGoals,
+          pred.predictionId,
+        );
+      corrected += 1;
+    }
+    return { corrected, unknown };
   }
 
   private find(id: string): Prediction | null {
