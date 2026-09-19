@@ -4,7 +4,7 @@ export function healthCheck(): { status: string; app: string; mode: string; spor
   return {
     status: 'ok',
     app: config.appName,
-    mode: config.mode,
+    mode: config.executionMode,
     sport: config.sport,
   };
 }

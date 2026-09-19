@@ -109,6 +109,26 @@ describe('resumen nocturno', () => {
     expect(report).toContain('🧠 RENDIMIENTO DEL MODELO');
     expect(report).not.toContain('prediction = apuesta');
   });
+  it('con apuestas reales muestra stake, PnL, ROI y bankroll del ledger real', () => {
+    const realStats = {
+      executed: 2,
+      won: 1,
+      lost: 1,
+      voided: 0,
+      pending: 0,
+      totalStakeCop: 20_000,
+      grossReturnCop: 20_000,
+      netPnlCop: 0,
+      roi: 0,
+      bankrollBeforeCop: 100_000,
+      bankrollAfterCop: 100_000,
+    };
+    const report = formatDailyPredictionReport([prediction()], '2026-09-18', realStats);
+    expect(report).toContain('💰 APUESTAS REALES');
+    expect(report).toContain('Stake total: 20.000 COP');
+    expect(report).toContain('📊 PREDICCIONES');
+    expect(report).toContain('🧠 RENDIMIENTO DEL MODELO');
+  });
 
   it('sin apuestas ejecutadas no inventa stakes ni PnL', () => {
     const report = formatDailyPredictionReport([prediction()], '2026-09-18');

@@ -113,6 +113,11 @@ function radarSortKey(entry: RefinementHeartbeatRadarEntry): string {
   return `${entry.home}${entry.away}`;
 }
 
+/** Maximum visual de opciones por página del radar: sin tocar elegibilidad del modelo. */
+export const RADAR_PAGE_SIZE = 15;
+/** Techo visual total del radar (entran ~2 páginas). */
+export const RADAR_VISIBLE_LIMIT = 30;
+
 function formatRadarEntry(entry: RefinementHeartbeatRadarEntry): string[] {
   const status =
     entry.experimental === true
@@ -245,7 +250,7 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
     );
   }
 
-  const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar : [];
+  const radar = (input.radar ?? []).slice(0, RADAR_VISIBLE_LIMIT);
   if (radar.length > 0) {
     const todayDate = calendarDateInBogota(input.now);
     const today = radar.filter(
@@ -259,10 +264,17 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
         return kickoffDiff !== 0 ? kickoffDiff : radarSortKey(a).localeCompare(radarSortKey(b));
       });
     const renderSection = (title: string, entries: RefinementHeartbeatRadarEntry[]) => {
-      lines.push('', title, '');
-      entries.forEach((entry, index) => {
-        if (index > 0) lines.push('─────────────', '');
-        lines.push(...formatRadarEntry(entry));
+      // Si hay muchas opciones, se pagina para no tragar el mensaje de Telegram.
+      const pages: RefinementHeartbeatRadarEntry[][] = [];
+      for (let start = 0; start < entries.length; start += RADAR_PAGE_SIZE)
+        pages.push(entries.slice(start, start + RADAR_PAGE_SIZE));
+      pages.forEach((page, pageIndex) => {
+        const titleSuffix = pages.length > 1 ? ` (${pageIndex + 1}/${pages.length})` : '';
+        lines.push('', `${title}${titleSuffix}`, '');
+        page.forEach((entry, index) => {
+          if (index > 0) lines.push('─────────────', '');
+          lines.push(...formatRadarEntry(entry));
+        });
       });
     };
     if (today.length > 0) {

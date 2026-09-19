@@ -8,6 +8,14 @@ import { SqliteProductionRiskStateStore } from '../../production-risk/adapters/s
 
 const NOW = new Date('2026-09-16T12:00:00.000Z');
 
+const IDENTITY = {
+  homeTeam: 'Groningen',
+  awayTeam: 'PEC Zwolle',
+  competition: 'Eredivisie',
+  kickoffAt: new Date('2026-09-20T18:00:00.000Z'),
+  selection: 'OVER_2_5',
+};
+
 function createService(): {
   store: SqliteManualLedgerStore;
   riskStore: SqliteProductionRiskStateStore;
@@ -36,17 +44,23 @@ function execute(
     executedStakeCop: 10_000,
     executedAt: NOW,
     now: NOW,
+    identity: IDENTITY,
     ...overrides,
   });
 }
 
 describe('SqliteManualLedgerStore', () => {
-  it('crea una ejecución manual y descuenta únicamente el saldo real', () => {
+  it('crea una ejecución manual con identidad de fixture y descuenta únicamente el saldo real', async () => {
     const { store, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
-      const entry = execute(service);
+      const entry = await execute(service);
       expect(entry.status).toBe('EXECUTED_MANUALLY');
+      expect(entry.executionMode).toBe('REAL_MANUAL');
+      expect(entry.homeTeam).toBe('Groningen');
+      expect(entry.awayTeam).toBe('PEC Zwolle');
+      expect(entry.competition).toBe('Eredivisie');
+      expect(entry.selection).toBe('OVER_2_5');
       expect(entry.bankrollBeforeCop).toBe(100_000);
       expect(entry.bankrollAfterCop).toBe(90_000);
       expect(service.realBankrollCop()).toBe(90_000);
@@ -55,12 +69,12 @@ describe('SqliteManualLedgerStore', () => {
     }
   });
 
-  it('la misma executionId es idempotente y no descuenta dos veces', () => {
+  it('la misma executionId es idempotente y no descuenta dos veces', async () => {
     const { store, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
-      const first = execute(service);
-      const repeated = execute(service, {
+      const first = await execute(service);
+      const repeated = await execute(service, {
         recommendationId: 'rec-other',
         executedStakeCop: 50_000,
       });
@@ -71,19 +85,19 @@ describe('SqliteManualLedgerStore', () => {
     }
   });
 
-  it('sincroniza EXECUTED_MANUALLY y SETTLED con el estado de riesgo', () => {
+  it('sincroniza EXECUTED_MANUALLY y SETTLED con el estado de riesgo', async () => {
     const { store, riskStore, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
-      execute(service);
-      execute(service);
+      await execute(service);
+      await execute(service);
       expect(riskStore.getDailyState('2026-09-16')).toEqual({
         betsToday: 1,
         dailyExposureCop: 10_000,
         dailyLossCop: 0,
         openBets: 1,
       });
-      service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW });
+      await service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW });
       expect(riskStore.getDailyState('2026-09-16')).toEqual({
         betsToday: 1,
         dailyExposureCop: 10_000,
@@ -96,13 +110,13 @@ describe('SqliteManualLedgerStore', () => {
     }
   });
 
-  it('RECOMMENDED no afecta el bankroll real y puede pasar a ejecución manual', () => {
+  it('RECOMMENDED no afecta el bankroll real y puede pasar a ejecución manual', async () => {
     const { store, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
       expect(service.recommend('rec-1', NOW).status).toBe('RECOMMENDED');
       expect(service.realBankrollCop()).toBe(100_000);
-      expect(execute(service).status).toBe('EXECUTED_MANUALLY');
+      expect((await execute(service)).status).toBe('EXECUTED_MANUALLY');
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
       store.close();
@@ -116,12 +130,12 @@ describe('SqliteManualLedgerStore', () => {
     ['VOID', 10_000, 0, 100_000],
   ] as const)(
     'liquida %s de forma determinista',
-    (result, grossReturnCop, netPnlCop, bankrollCop) => {
+    async (result, grossReturnCop, netPnlCop, bankrollCop) => {
       const { store, service } = createService();
       try {
         service.initializeRealBankroll(100_000);
-        execute(service);
-        const settled = service.settle({ executionId: 'exec-1', result, now: NOW });
+        await execute(service);
+        const settled = await service.settle({ executionId: 'exec-1', result, now: NOW });
         expect(settled.status).toBe('SETTLED');
         expect(settled.grossReturnCop).toBe(grossReturnCop);
         expect(settled.netPnlCop).toBe(netPnlCop);
@@ -132,28 +146,29 @@ describe('SqliteManualLedgerStore', () => {
     },
   );
 
-  it('impide doble settlement', () => {
+  it('impide doble settlement', async () => {
     const { store, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
-      execute(service);
-      service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW });
-      expect(() => service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW })).toThrow(
-        AlreadyManualSettledError,
-      );
+      await execute(service);
+      await service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW });
+      await expect(
+        service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW }),
+      ).rejects.toThrow(AlreadyManualSettledError);
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
       store.close();
     }
   });
 
-  it('calcula CLV cuando hay cuota de cierre y null cuando no la hay', () => {
+  it('calcula CLV cuando hay cuota de cierre y null cuando no la hay', async () => {
     const { store, service } = createService();
     try {
       service.initializeRealBankroll(100_000);
-      execute(service);
+      await execute(service);
       expect(
-        service.settle({ executionId: 'exec-1', result: 'LOSS', closingOdds: 2, now: NOW }).clv,
+        (await service.settle({ executionId: 'exec-1', result: 'LOSS', closingOdds: 2, now: NOW }))
+          .clv,
       ).toBeCloseTo(0.25);
     } finally {
       store.close();
@@ -162,23 +177,23 @@ describe('SqliteManualLedgerStore', () => {
     const another = createService();
     try {
       another.service.initializeRealBankroll(100_000);
-      execute(another.service);
+      await execute(another.service);
       expect(
-        another.service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW }).clv,
+        (await another.service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW })).clv,
       ).toBeNull();
     } finally {
       another.store.close();
     }
   });
 
-  it('conserva ejecución y saldo al reabrir SQLite', () => {
+  it('conserva ejecución y saldo al reabrir SQLite', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'kss-manual-ledger-'));
     const path = join(directory, 'nested', 'ledger.sqlite');
     const first = new SqliteManualLedgerStore(path);
     const firstRisk = new SqliteProductionRiskStateStore(':memory:');
     const service = new ManualLedgerService(first, firstRisk);
     service.initializeRealBankroll(100_000);
-    execute(service);
+    await execute(service);
     first.close();
 
     const reopened = new SqliteManualLedgerStore(path);

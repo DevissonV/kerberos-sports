@@ -49,7 +49,7 @@ describe('redaccion de secrets en logs', () => {
 
 describe('config base', () => {
   it('mantiene PAPER ONLY y FOOTBALL congelados', () => {
-    expect(config.mode).toBe('PAPER');
+    expect(config.executionMode).toBe('PAPER');
     expect(config.sport).toBe('FOOTBALL');
   });
 });

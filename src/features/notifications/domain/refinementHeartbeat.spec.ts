@@ -399,6 +399,47 @@ describe('formatRefinementHeartbeat', () => {
     expect(message).toContain('🧠 Probabilidad Kerberos: 54.6%');
   });
 
+  it('pagina el radar cuando hay más de 15 opciones sin recortar contenido', () => {
+    const entries = Array.from({ length: 17 }, (_, index) => ({
+      home: `Local ${index}`,
+      away: `Visitante ${index}`,
+      selection: 'MÁS DE 2.5 GOLES',
+      league: 'Premier League',
+      probability: 0.6,
+      kickoffAt: new Date('2026-09-18T18:00:00Z'),
+    }));
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-18T12:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 17 }],
+      radar: entries,
+      counters: BASE_COUNTERS,
+    });
+    expect(message).toContain('🔥 PARTIDOS A SEGUIR (1/2)');
+    expect(message).toContain('🔥 PARTIDOS A SEGUIR (2/2)');
+    expect(message).toContain('⚽ Local 16 vs Visitante 16');
+  });
+
+  it('limita el radar a un techo visual de 30 opciones', () => {
+    const entries = Array.from({ length: 40 }, (_, index) => ({
+      home: `L${index}`,
+      away: `V${index}`,
+      selection: 'MÁS DE 2.5 GOLES',
+      league: 'Premier League',
+      probability: 0.6,
+      kickoffAt: new Date('2026-09-18T18:00:00Z'),
+    }));
+    const message = formatRefinementHeartbeat({
+      now: new Date('2026-09-18T12:00:00Z'),
+      openBets: 0,
+      byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 40 }],
+      radar: entries,
+      counters: BASE_COUNTERS,
+    });
+    expect(message).toContain('⚽ L29 vs V29');
+    expect(message).not.toContain('⚽ L30 vs V30');
+  });
+
   it('destaca una apuesta aprobada sin recalcular sus datos', () => {
     const message = formatRefinementHeartbeat({
       now: new Date('2026-09-15T12:00:00Z'),

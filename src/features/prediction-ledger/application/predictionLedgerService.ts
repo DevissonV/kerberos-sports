@@ -17,6 +17,7 @@ import {
 } from '../domain/metrics';
 import { PREDICTION_STORE, type PredictionStore } from '../ports/predictionStore';
 import { formatDailyPredictionReport } from '../../notifications/domain/dailyPredictionReport';
+import { REAL_BETS_SUMMARY, type RealBetsSummary } from '../ports/realBetsSummary';
 
 const TERMINAL_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const VOID_STATUSES = new Set(['CANC', 'ABD', 'AWD', 'WO']);
@@ -27,6 +28,7 @@ export class PredictionLedgerService {
     @Inject(PREDICTION_STORE) private readonly store: PredictionStore,
     @Inject(RESULTS_PROVIDER) private readonly results: ResultsProvider,
     @Inject(NOTIFICATION_PORT) private readonly notifications: NotificationPort,
+    @Inject(REAL_BETS_SUMMARY) private readonly realBets?: RealBetsSummary,
   ) {}
 
   recordPreanalysis(analysis: ModelAnalysis): Prediction {
@@ -165,7 +167,8 @@ export class PredictionLedgerService {
     const day = calendarDateInBogota(now);
     if (!this.store.claimDailyReport(day, now)) return false;
     try {
-      await this.notifications.send(formatDailyPredictionReport(this.store.list(), day));
+      const realStats = this.realBets?.daily(day);
+      await this.notifications.send(formatDailyPredictionReport(this.store.list(), day, realStats));
       return true;
     } catch (error) {
       this.store.releaseDailyReport(day);

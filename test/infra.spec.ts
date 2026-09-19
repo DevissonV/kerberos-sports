@@ -13,7 +13,7 @@ describe('infra', () => {
   });
 
   it('config es paper-only por defecto', () => {
-    expect(config.mode).toBe('PAPER');
+    expect(config.executionMode).toBe('PAPER');
     expect(config.sport).toBe('FOOTBALL');
   });
 

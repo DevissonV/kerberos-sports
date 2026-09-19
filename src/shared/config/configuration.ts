@@ -3,9 +3,12 @@
  * (.env); jamás se hardcodean. `redactConfig` produce una versión segura para logs.
  */
 
+export type ExecutionMode = 'PAPER' | 'REAL_MANUAL';
+
 export interface AppConfig {
   appName: string;
-  mode: 'PAPER';
+  /** Modo de ejecución: PAPER por defecto; REAL_MANUAL habilita el piloto manual. */
+  executionMode: ExecutionMode;
   sport: 'FOOTBALL';
   nodeEnv: string;
   /** Clave de API-Football (api-football.com). Undefined si no está configurada. */
@@ -34,6 +37,12 @@ export interface AppConfig {
   paperBetsDbPath: string;
   /** Ruta SQLite exclusiva del ledger manual; nunca comparte saldo con PAPER. */
   manualLedgerDbPath: string;
+  /** Bankroll real inicial (COP) del ledger manual; nunca mezclado con el PAPER. */
+  realBankrollCop?: number;
+  realMaxStakeCop?: number;
+  realMaxDailyExposureCop?: number;
+  realMaxDailyLossCop?: number;
+  realMaxOpenBets?: number;
   refinementMode: boolean;
   maxOddsPapiFullScansPerDay: number;
   /** Hora local America/Bogota (HH:mm) para el resumen nocturno. */
@@ -72,10 +81,54 @@ function optionalEnv(name: string): string | undefined {
   return value && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+/** Modo de ejecución: PAPER por defecto; REAL_AUTOMATED está prohibido (fail-closed). */
+export function resolveExecutionMode(): AppConfig['executionMode'] {
+  const raw = optionalEnv('EXECUTION_MODE') ?? 'PAPER';
+  if (raw === 'PAPER') return 'PAPER';
+  if (raw === 'REAL_MANUAL') return 'REAL_MANUAL';
+  throw new Error(
+    `EXECUTION_MODE inválida: ${raw}. Valores permitidos: PAPER, REAL_MANUAL (la ejecución automática está prohibida).`,
+  );
+}
+
 export function createConfig(): AppConfig {
+  const executionMode = resolveExecutionMode();
+  if (executionMode === 'REAL_MANUAL') {
+    // Fail-closed: el piloto real exige límites explícitos configurados.
+    const requiredRealEnvs = [
+      'REAL_BANKROLL_COP',
+      'REAL_MAX_STAKE_COP',
+      'REAL_MAX_DAILY_EXPOSURE_COP',
+      'REAL_MAX_DAILY_LOSS_COP',
+      'REAL_MAX_OPEN_BETS',
+    ];
+    const missing = requiredRealEnvs.filter((name) => optionalEnv(name) === undefined);
+    if (missing.length > 0)
+      throw new Error(`EXECUTION_MODE=REAL_MANUAL exige configurar ${missing.join(', ')}`);
+  }
   return {
     appName: 'kerberos-sports',
-    mode: 'PAPER',
+    executionMode,
+    realBankrollCop:
+      optionalEnv('REAL_BANKROLL_COP') === undefined
+        ? undefined
+        : Number(optionalEnv('REAL_BANKROLL_COP')),
+    realMaxStakeCop:
+      optionalEnv('REAL_MAX_STAKE_COP') === undefined
+        ? undefined
+        : Number(optionalEnv('REAL_MAX_STAKE_COP')),
+    realMaxDailyExposureCop:
+      optionalEnv('REAL_MAX_DAILY_EXPOSURE_COP') === undefined
+        ? undefined
+        : Number(optionalEnv('REAL_MAX_DAILY_EXPOSURE_COP')),
+    realMaxDailyLossCop:
+      optionalEnv('REAL_MAX_DAILY_LOSS_COP') === undefined
+        ? undefined
+        : Number(optionalEnv('REAL_MAX_DAILY_LOSS_COP')),
+    realMaxOpenBets:
+      optionalEnv('REAL_MAX_OPEN_BETS') === undefined
+        ? undefined
+        : Number(optionalEnv('REAL_MAX_OPEN_BETS')),
     sport: 'FOOTBALL',
     nodeEnv: process.env.NODE_ENV ?? 'development',
     apiFootballKey: optionalEnv('API_FOOTBALL_KEY'),

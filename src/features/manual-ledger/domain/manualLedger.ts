@@ -6,6 +6,16 @@ export interface ManualLedgerEntry {
   recommendationId: string;
   executionId?: string;
   status: ManualLedgerStatus;
+  /** Identidad del fixture: obligatoria para registrar una ejecución real (fail-closed). */
+  homeTeam?: string;
+  awayTeam?: string;
+  competition?: string;
+  kickoffAt?: Date;
+  selection?: string;
+  executionMode?: 'REAL_MANUAL';
+  telegramNotifiedAt?: Date;
+  /** Marca del envío único del mensaje de settlement (dedupe por evento). */
+  settledNotifiedAt?: Date;
   bookmaker?: string;
   executedOdds?: number;
   executedStakeCop?: number;
@@ -17,6 +27,7 @@ export interface ManualLedgerEntry {
   bankrollAfterCop?: number;
   closingOdds?: number;
   clv: number | null;
+  settledAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

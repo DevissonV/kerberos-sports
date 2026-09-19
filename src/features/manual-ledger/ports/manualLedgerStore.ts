@@ -2,6 +2,14 @@ import type { ManualBetResult, ManualLedgerEntry } from '../domain/manualLedger'
 
 export const MANUAL_LEDGER_STORE = Symbol('ManualLedgerStore');
 
+export interface ManualFixtureIdentity {
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  kickoffAt: Date;
+  selection: string;
+}
+
 export interface ExecuteManualBetInput {
   recommendationId: string;
   executionId: string;
@@ -10,6 +18,8 @@ export interface ExecuteManualBetInput {
   executedStakeCop: number;
   executedAt: Date;
   createdAt: Date;
+  /** Identidad completa del fixture: el registro real es incompleto sin ella. */
+  identity: ManualFixtureIdentity;
 }
 
 export interface SettleManualBetInput {
@@ -27,6 +37,9 @@ export interface ManualLedgerStore {
   settle(input: SettleManualBetInput): ManualLedgerEntry;
   findByRecommendationId(recommendationId: string): ManualLedgerEntry | null;
   findByExecutionId(executionId: string): ManualLedgerEntry | null;
+  listEntries(): ManualLedgerEntry[];
+  /** Ejecutadas/no liquidadas sin notificación: para el envío único de Telegram. */
+  markTelegramNotified(executionId: string, notifiedAt: Date, event?: 'EXECUTED' | 'SETTLED'): void;
 }
 
 export class DuplicateManualExecutionError extends Error {

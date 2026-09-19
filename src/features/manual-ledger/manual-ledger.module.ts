@@ -8,9 +8,12 @@ import type { ManualLedgerStore } from './ports/manualLedgerStore';
 import { ProductionRiskModule } from '../production-risk/production-risk.module';
 import { PRODUCTION_RISK_STATE_STORE } from '../production-risk/ports/productionRiskStateStore';
 import type { ProductionRiskStateStore } from '../production-risk/ports/productionRiskStateStore';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { NOTIFICATION_PORT } from '../notifications/ports/notificationPort';
+import type { NotificationPort } from '../notifications/ports/notificationPort';
 
 @Module({
-  imports: [ProductionRiskModule],
+  imports: [ProductionRiskModule, NotificationsModule],
   providers: [
     {
       provide: MANUAL_LEDGER_STORE,
@@ -22,11 +25,14 @@ import type { ProductionRiskStateStore } from '../production-risk/ports/producti
     },
     {
       provide: ManualLedgerService,
-      inject: [MANUAL_LEDGER_STORE, PRODUCTION_RISK_STATE_STORE],
-      useFactory: (store: ManualLedgerStore, riskStateStore: ProductionRiskStateStore) =>
-        new ManualLedgerService(store, riskStateStore),
+      inject: [MANUAL_LEDGER_STORE, PRODUCTION_RISK_STATE_STORE, NOTIFICATION_PORT],
+      useFactory: (
+        store: ManualLedgerStore,
+        riskStateStore: ProductionRiskStateStore,
+        notifications: NotificationPort,
+      ) => new ManualLedgerService(store, riskStateStore, notifications),
     },
   ],
-  exports: [ManualLedgerService],
+  exports: [ManualLedgerService, MANUAL_LEDGER_STORE],
 })
 export class ManualLedgerModule {}

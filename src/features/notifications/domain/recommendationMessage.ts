@@ -5,6 +5,11 @@ import type { ProductionRiskDecision } from '../../production-risk/domain/produc
 import { marketLanguage } from './marketLanguage';
 import { formatFixtureIdentity } from './fixtureIdentity';
 
+/** Código corto operable: últimos 6 caracteres del recommendationId, en mayúsculas. */
+export function shortRecommendationId(recommendationId: string): string {
+  return recommendationId.slice(-6).toUpperCase();
+}
+
 const STAKE_TIERS_COP = [10_000, 15_000, 20_000] as const;
 
 function percent(value: number): string {
@@ -104,6 +109,8 @@ export function formatRecommendationTelegramMessage(
     '',
     `🛡️ Risk Gate: ${options.riskDecision.status === 'APPROVED' ? 'APROBADO' : 'APROBADO CON REDUCCIÓN'}`,
     `💰 Stake autorizado: ${cop(selectedStake)}`,
+    '',
+    `🔖 Registro: ${shortRecommendationId(recommendation.recommendationId)}`,
     '',
     '👤 EJECUCIÓN MANUAL',
   ].join('\n');

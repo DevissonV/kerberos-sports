@@ -6,7 +6,7 @@ import type { Recommendation } from '../../recommendations/domain/recommendation
 
 function recommendation(overrides: Partial<Recommendation> = {}): Recommendation {
   return {
-    recommendationId: 'quant-9001-over',
+    recommendationId: 'quant-9001-abc123',
     fixtureId: 'Arsenal vs Chelsea',
     league: 'Premier League',
     market: 'OVER_UNDER_2_5',
@@ -53,6 +53,7 @@ describe('formatRecommendationTelegramMessage', () => {
     expect(message).toContain('🟡 15.000 COP — 3.0%\n🔒 NO AUTORIZADA');
     expect(message).toContain('🔴 20.000 COP — 4.0%\n🔒 NO AUTORIZADA');
     expect(message).toContain('🚨 APUESTA AUTORIZADA');
+    expect(message).toContain('🔖 Registro: ABC123');
     expect(message).toContain('💰 Stake autorizado: 10.000 COP');
     expect(message).toContain('👤 EJECUCIÓN MANUAL');
   });

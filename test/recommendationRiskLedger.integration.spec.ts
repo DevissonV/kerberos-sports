@@ -64,6 +64,13 @@ function execute(service: ManualLedgerService, executionId = 'exec-1') {
     executedStakeCop: 10_000,
     executedAt: NOW,
     now: NOW,
+    identity: {
+      homeTeam: 'Arsenal',
+      awayTeam: 'Chelsea',
+      competition: 'Premier League',
+      kickoffAt: new Date('2026-09-16T19:30:00.000Z'),
+      selection: 'OVER_2_5',
+    },
   });
 }
 
@@ -113,11 +120,11 @@ describe('integración recomendación, riesgo y ledger manual', () => {
     });
   });
 
-  it('F: registra la ejecución manual en el ledger', () => {
+  it('F: registra la ejecución manual en el ledger', async () => {
     const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
-      expect(execute(service)).toMatchObject({
+      expect(await execute(service)).toMatchObject({
         status: 'EXECUTED_MANUALLY',
         recommendationId: 'rec-1',
       });
@@ -127,17 +134,21 @@ describe('integración recomendación, riesgo y ledger manual', () => {
     }
   });
 
-  it('G: liquida una victoria una sola vez y actualiza el bankroll real', () => {
+  it('G: liquida una victoria una sola vez y actualiza el bankroll real', async () => {
     const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
-      execute(service);
-      expect(service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW })).toMatchObject({
+      await execute(service);
+      expect(
+        await service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW }),
+      ).toMatchObject({
         status: 'SETTLED',
         netPnlCop: 10_000,
       });
       expect(service.realBankrollCop()).toBe(110_000);
-      expect(() => service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW })).toThrow();
+      await expect(
+        service.settle({ executionId: 'exec-1', result: 'WIN', now: NOW }),
+      ).rejects.toThrow();
       expect(service.realBankrollCop()).toBe(110_000);
     } finally {
       store.close();
@@ -145,17 +156,21 @@ describe('integración recomendación, riesgo y ledger manual', () => {
     }
   });
 
-  it('H: liquida una pérdida una sola vez y actualiza el bankroll real', () => {
+  it('H: liquida una pérdida una sola vez y actualiza el bankroll real', async () => {
     const { store, riskStore, service } = ledger();
     try {
       service.initializeRealBankroll(100_000);
-      execute(service);
-      expect(service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW })).toMatchObject({
+      await execute(service);
+      expect(
+        await service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW }),
+      ).toMatchObject({
         status: 'SETTLED',
         netPnlCop: -10_000,
       });
       expect(service.realBankrollCop()).toBe(90_000);
-      expect(() => service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW })).toThrow();
+      await expect(
+        service.settle({ executionId: 'exec-1', result: 'LOSS', now: NOW }),
+      ).rejects.toThrow();
       expect(service.realBankrollCop()).toBe(90_000);
     } finally {
       store.close();

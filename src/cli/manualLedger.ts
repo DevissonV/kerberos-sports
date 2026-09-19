@@ -33,7 +33,14 @@ async function main(): Promise<void> {
         response = service.recommend(required(args[0], 'recommendationId'), now);
         break;
       case 'execute':
-        response = service.execute({
+        response = await service.execute({
+          identity: {
+            homeTeam: required(args[5], 'homeTeam'),
+            awayTeam: required(args[6], 'awayTeam'),
+            competition: required(args[7], 'competition'),
+            kickoffAt: new Date(required(args[8], 'kickoffAt (ISO)')),
+            selection: required(args[9], 'selection (OVER_2_5|UNDER_2_5)'),
+          },
           recommendationId: required(args[0], 'recommendationId'),
           executionId: required(args[1], 'executionId'),
           bookmaker: required(args[2], 'bookmaker'),
@@ -44,7 +51,7 @@ async function main(): Promise<void> {
         });
         break;
       case 'settle':
-        response = service.settle({
+        response = await service.settle({
           executionId: required(args[0], 'executionId'),
           result: result(args[1]),
           closingOdds: args[2] === undefined ? undefined : number(args[2], 'closingOdds'),
@@ -56,7 +63,7 @@ async function main(): Promise<void> {
         break;
       default:
         throw new Error(
-          'Uso: ledger <initialize|recommend|execute|settle|balance>. La ejecución se registra manualmente; no conecta bookmakers.',
+          'Uso: ledger <initialize|recommend|execute|settle|balance>. execute: ledger execute <recommendationId|código> <executionId> <bookmaker> <odds> <stake> <home> <away> <competición> <kickoffISO> <OVER_2_5|UNDER_2_5>. La ejecución es manual; no conecta bookmakers.',
         );
     }
     process.stdout.write(`${JSON.stringify(response)}\n`);

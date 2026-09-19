@@ -6,12 +6,17 @@ import {
 } from '../../prediction-ledger/domain/metrics';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { formatFixtureIdentity } from './fixtureIdentity';
+import type { RealBetsDailyStats } from '../../manual-ledger/domain/realBetsStats';
 
 const percent = (value: number): string => `${(value * 100).toFixed(1)}%`;
+const signedPercent = (value: number): string =>
+  `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+const cop = (value: number): string => `${Math.round(value).toLocaleString('es-CO')} COP`;
 
 export function formatDailyPredictionReport(
   predictions: readonly Prediction[],
   dayBogota: string,
+  realBets?: RealBetsDailyStats,
 ): string {
   const primary = predictions.filter((prediction) => prediction.isPrimary);
   const dayPredictions = primary.filter(
@@ -26,7 +31,6 @@ export function formatDailyPredictionReport(
   const resolved = dayPredictions.filter(
     (prediction) => prediction.result === 'HIT' || prediction.result === 'MISS',
   );
-  const authorized = dayPredictions.filter((prediction) => prediction.betAuthorized).length;
   const executed = dayPredictions.filter((prediction) => prediction.betExecuted).length;
   const date = new Intl.DateTimeFormat('es-CO', {
     timeZone: 'America/Bogota',
@@ -82,12 +86,28 @@ export function formatDailyPredictionReport(
     '─────────────',
     '',
     '💰 APUESTAS REALES',
-    `Autorizadas: ${authorized}`,
-    `Ejecutadas: ${executed}`,
-    ...(executed === 0
-      ? ['(Sin apuestas ejecutadas: el modelo se evalúa solo con predicciones.)']
+    ...(realBets === undefined
+      ? [
+          `Ejecutadas: ${executed}`,
+          '(Sin apuestas ejecutadas: el modelo se evalúa solo con predicciones.)',
+        ]
       : [
-          `PnL real disponible en el ledger de apuestas ejecutadas; el resumen de predicciones no lo recalcula.`,
+          `Ejecutadas: ${realBets.executed}`,
+          `✅ Ganadas: ${realBets.won}`,
+          `❌ Perdidas: ${realBets.lost}`,
+          `↩️ Anuladas/devueltas: ${realBets.voided}`,
+          `⏳ Pendientes: ${realBets.pending}`,
+          '',
+          `Stake total: ${cop(realBets.totalStakeCop)}`,
+          `Retorno bruto: ${cop(realBets.grossReturnCop)}`,
+          `PnL neto: ${cop(realBets.netPnlCop)}`,
+          ...(realBets.roi === null ? [] : [`ROI diario: ${signedPercent(realBets.roi)}`]),
+          ...(realBets.bankrollBeforeCop === null
+            ? []
+            : [`Bankroll inicial: ${cop(realBets.bankrollBeforeCop)}`]),
+          ...(realBets.bankrollAfterCop === null
+            ? []
+            : [`Bankroll final: ${cop(realBets.bankrollAfterCop)}`]),
         ]),
     '',
     '─────────────',
