@@ -5,7 +5,7 @@
     "buildCommand": "npm ci && npm run build"
   },
   "deploy": {
-    "startCommand": "node dist/cli/scan.js",
+    "startCommand": "npm run -s ledger -- initialize 100000",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
