@@ -123,6 +123,9 @@ describe('resolveCanonicalTeamName', () => {
       'primeira-liga': ['2425-P1.csv', '2526-P1.csv', '2627-P1.csv'],
       'belgian-pro-league': ['2425-B1.csv', '2526-B1.csv', '2627-B1.csv'],
       mls: ['mls_matches_2024.csv', 'mls_matches_2025.csv', 'mls_matches_2026.csv'],
+      championship: ['2425-E1.csv', '2526-E1.csv', '2627-E1.csv'],
+      'scottish-premiership': ['2425-SC0.csv', '2526-SC0.csv', '2627-SC0.csv'],
+      'super-lig': ['2425-T1.csv', '2526-T1.csv', '2627-T1.csv'],
     };
     for (const [dataset, datasetFiles] of Object.entries(files)) {
       for (const file of datasetFiles) {

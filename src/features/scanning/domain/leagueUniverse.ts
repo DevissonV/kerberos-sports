@@ -20,6 +20,9 @@ import type { Fixture } from './concepts';
 export type LeagueStatus = 'DISCOVERED' | 'OBSERVATION_ONLY' | 'MODEL_ENABLED' | 'EXCLUDED';
 export type LeagueCode =
   | 'PREMIER_LEAGUE'
+  | 'EFL_CHAMPIONSHIP'
+  | 'SCOTTISH_PREMIERSHIP'
+  | 'SUPER_LIG'
   | 'MLS'
   | 'LALIGA'
   | 'LIGA_BETPLAY'
@@ -167,6 +170,39 @@ export const LEAGUE_UNIVERSE: readonly LeagueDefinition[] = [
     modelVersion: POISSON_MODEL_VERSION,
     historicalDataset: 'mls',
     heartbeatLabel: '🇺🇸 MLS',
+  },
+  {
+    code: 'EFL_CHAMPIONSHIP',
+    leagueId: 40,
+    country: 'England',
+    canonicalName: 'EFL Championship',
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C11-ENG2',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'championship',
+    heartbeatLabel: '🇬🇧 Championship',
+  },
+  {
+    code: 'SCOTTISH_PREMIERSHIP',
+    leagueId: 179,
+    country: 'Scotland',
+    canonicalName: 'Scottish Premiership',
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C12-SCO',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'scottish-premiership',
+    heartbeatLabel: '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish Premiership',
+  },
+  {
+    code: 'SUPER_LIG',
+    leagueId: 203,
+    country: 'Turkey',
+    canonicalName: 'Süper Lig',
+    status: 'MODEL_ENABLED',
+    cohortId: 'KSS-V1-C13-TUR',
+    modelVersion: POISSON_MODEL_VERSION,
+    historicalDataset: 'super-lig',
+    heartbeatLabel: '🇹🇷 Süper Lig',
   },
 ];
 

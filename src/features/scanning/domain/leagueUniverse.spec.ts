@@ -31,7 +31,7 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
     expect(mls?.status).toBe('MODEL_ENABLED');
     expect(mls?.cohortId).toBe('KSS-V1-C10-USA');
     const modelEnabled = LEAGUE_UNIVERSE.filter((league) => league.status === 'MODEL_ENABLED');
-    expect(modelEnabled).toHaveLength(9);
+    expect(modelEnabled).toHaveLength(12);
   });
 
   it('las ligas fuera del alcance productivo permanecen OBSERVATION_ONLY', () => {
@@ -122,6 +122,9 @@ describe('universo de ligas KSS-LEAGUE-UNIVERSE-01', () => {
       'Primeira Liga',
       'Belgian Pro League',
       'Major League Soccer',
+      'EFL Championship',
+      'Scottish Premiership',
+      'Süper Lig',
     ]);
     expect(summary[0]).toMatchObject({ status: 'OBSERVATION_ONLY', fixturesDetected: 0 });
     expect(summary[1]).toMatchObject({ status: 'MODEL_ENABLED', fixturesDetected: 1 });

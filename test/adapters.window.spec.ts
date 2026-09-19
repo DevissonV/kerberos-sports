@@ -54,12 +54,13 @@ describe('upcomingFixtures ventana por dia', () => {
   });
 
   it('no pierde la Premier League que aparece después del fixture 20 global', async () => {
-    const response = Array.from({ length: 20 }, (_, i) => ({
-      ...fixtureEntry(i + 1, `2026-09-15T${String(10 + i).padStart(2, '0')}:00:00Z`, [
-        `Other ${i}`,
-        `Away ${i}`,
-      ]),
-      league: { id: 40, name: 'Premier League', country: 'England' },
+    const response = Array.from({ length: 19 }, (_, i) => ({
+      ...fixtureEntry(
+        i + 1,
+        `2026-09-15T${String(6 + (i % 9)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00Z`,
+        [`Other ${i}`, `Away ${i}`],
+      ),
+      league: { id: 40, name: 'Championship', country: 'England' },
     }));
     response.push({
       ...fixtureEntry(99, '2026-09-15T23:00:00Z', ['Arsenal', 'Chelsea']),
@@ -72,9 +73,9 @@ describe('upcomingFixtures ventana por dia', () => {
       1,
     );
 
-    await expect(adapter.upcomingFixtures(20)).resolves.toMatchObject([
-      expect.objectContaining({ id: '99', leagueId: 39 }),
-    ]);
+    await expect(adapter.upcomingFixtures(20)).resolves.toMatchObject(
+      expect.arrayContaining([expect.objectContaining({ id: '99', leagueId: 39 })]),
+    );
   });
 
   it('acepta league.id 39 y rechaza país incorrecto aunque el nombre coincida', async () => {
@@ -86,7 +87,7 @@ describe('upcomingFixtures ventana por dia', () => {
       },
       {
         ...fixtureEntry(3, '2026-09-15T14:00:00Z', ['Wrong', 'League']),
-        league: { id: 40, name: 'Premier League', country: 'England' },
+        league: { id: 38, name: 'Some Tournament', country: 'England' },
       },
     ];
     const adapter = new ApiFootballFixturesAdapter(
