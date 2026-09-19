@@ -869,12 +869,22 @@ export class RefinementService {
           closed: this.closedFollowups(now, radar).map((entry) => `${entry.home}|${entry.away}`),
           status: tick.status,
         };
-        const shouldSend =
-          this.predictionLedger?.shouldSendEvent('operational-heartbeat', material, now) ??
-          this.refinementStore.claimHeartbeat(tickId);
+        let claimedViaLedger = false;
+        const shouldSend = this.predictionLedger?.shouldSendEvent
+          ? this.predictionLedger.shouldSendEvent('operational-heartbeat', material, now) &&
+            (claimedViaLedger = true)
+          : this.refinementStore.claimHeartbeat(tickId);
         if (shouldSend) {
-          await this.notifications.send(heartbeat);
-          tick.telegramHeartbeatSent = true;
+          try {
+            await this.notifications.send(heartbeat);
+            tick.telegramHeartbeatSent = true;
+          } catch (cause) {
+            // El claim solo consume el evento si el envio realmente salio: si
+            // Telegram falla, se libera para que el proximo tick reintente.
+            if (claimedViaLedger)
+              this.predictionLedger?.releaseEvent('operational-heartbeat', material);
+            throw cause;
+          }
         }
       } catch (cause) {
         markError(tick, cause, 'PARTIAL');

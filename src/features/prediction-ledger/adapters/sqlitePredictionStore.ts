@@ -140,6 +140,12 @@ export class SqlitePredictionStore implements PredictionStore {
     return result.changes === 1;
   }
 
+  releaseEvent(eventId: string, fingerprint: string): void {
+    this.db
+      .prepare('DELETE FROM notification_events WHERE eventId=? AND fingerprint=?')
+      .run(eventId, fingerprint);
+  }
+
   claimDailyReport(dayBogota: string, now: Date): boolean {
     const result = this.db
       .prepare('INSERT OR IGNORE INTO daily_prediction_reports VALUES (?, ?)')

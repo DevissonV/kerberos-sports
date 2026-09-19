@@ -22,6 +22,10 @@ import { REAL_BETS_SUMMARY, type RealBetsSummary } from '../ports/realBetsSummar
 const TERMINAL_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const VOID_STATUSES = new Set(['CANC', 'ABD', 'AWD', 'WO']);
 
+function eventFingerprint(material: unknown): string {
+  return createHash('sha256').update(JSON.stringify(material)).digest('hex');
+}
+
 @Injectable()
 export class PredictionLedgerService {
   constructor(
@@ -177,8 +181,14 @@ export class PredictionLedgerService {
   }
 
   shouldSendEvent(eventId: string, material: unknown, now: Date): boolean {
-    const fingerprint = createHash('sha256').update(JSON.stringify(material)).digest('hex');
+    const fingerprint = eventFingerprint(material);
     return this.store.claimEvent(`${eventId}:${fingerprint}`, fingerprint, now);
+  }
+
+  /** Libera el claim de un evento cuyo envío falló, para que el siguiente tick reintente. */
+  releaseEvent(eventId: string, material: unknown): void {
+    const fingerprint = eventFingerprint(material);
+    this.store.releaseEvent(`${eventId}:${fingerprint}`, fingerprint);
   }
 
   snapshot() {

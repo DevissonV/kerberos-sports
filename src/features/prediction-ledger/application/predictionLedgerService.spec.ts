@@ -141,6 +141,16 @@ describe('PredictionLedgerService', () => {
     ).toBe(true);
   });
 
+  it('libera el claim de un evento cuyo envio fallo y permite reintentarlo', () => {
+    const { service } = setup();
+    const now = new Date();
+    const material = { fixtures: ['1'], probability: 658 };
+    expect(service.shouldSendEvent('heartbeat', material, now)).toBe(true);
+    expect(service.shouldSendEvent('heartbeat', material, now)).toBe(false);
+    service.releaseEvent('heartbeat', material);
+    expect(service.shouldSendEvent('heartbeat', material, now)).toBe(true);
+  });
+
   it('genera una vez el reporte diario usando fecha America/Bogota', async () => {
     const { service, sendMock } = setup();
     const now = new Date('2026-09-19T03:45:00Z'); // 22:45 del 18 en Bogotá

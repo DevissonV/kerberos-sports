@@ -1,4 +1,7 @@
-import { TelegramNotificationAdapter } from '../src/features/notifications/adapters/telegramNotification';
+import {
+  TelegramNotificationAdapter,
+  splitTelegramMessage,
+} from '../src/features/notifications/adapters/telegramNotification';
 import { NotificationError } from '../src/features/notifications/ports/notificationPort';
 import { formatPickNotification } from '../src/features/notifications/domain/pickMessage';
 import { config, redactEnv } from '../src/shared/config/configuration';
@@ -49,6 +52,41 @@ describe('TelegramNotificationAdapter (fake fetch, sin red real)', () => {
     const safe = redactEnv({ TELEGRAM_BOT_TOKEN: 'secret-sports', TELEGRAM_CHAT_ID: '123' });
     expect(safe['TELEGRAM_BOT_TOKEN']).toBe('[REDACTED]');
     expect(JSON.stringify(safe)).not.toContain('secret-sports');
+  });
+
+  it('divide mensajes largos en varios sendMessage de maximo 4000 caracteres', async () => {
+    const { adapter, calls } = fakeAdapter({ ok: true, status: 200 });
+    const longMessage = Array.from(
+      { length: 120 },
+      (_, i) => `${i + 1}️⃣ Partido Largo ${i} vs Rival Largo ${i}`,
+    ).join('\n');
+    expect(longMessage.length).toBeGreaterThan(4096);
+    await adapter.send(longMessage);
+    expect(calls.length).toBeGreaterThan(1);
+    for (const call of calls) {
+      const payload = JSON.parse(call.init.body as string) as Record<string, unknown>;
+      const text = String(payload['text']);
+      expect(text.length).toBeLessThanOrEqual(4000);
+      expect(text.length).toBeGreaterThan(0);
+    }
+    const joined = calls
+      .map((call) =>
+        String((JSON.parse(call.init.body as string) as Record<string, string>)['text']),
+      )
+      .join('\n');
+    expect(joined).toBe(longMessage);
+  });
+
+  it('splitTelegramMessage no altera mensajes cortos', () => {
+    const short = '⚽ KERBEROS SPORTS\nRevisión completada';
+    expect(splitTelegramMessage(short)).toEqual([short]);
+  });
+
+  it('divide la primera linea aunque exceda el limite por si misma', () => {
+    const longLine = 'a'.repeat(4500);
+    const chunks = splitTelegramMessage(`x\n${longLine}`);
+    expect(chunks[0]).toBe('x');
+    expect(chunks[1]!.length).toBeLessThanOrEqual(4000);
   });
 });
 
