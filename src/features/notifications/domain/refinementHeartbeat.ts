@@ -1,6 +1,8 @@
 import type { RefinementCounters } from '../../quant/ports/refinementStore';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { formatKickoffBogota } from './formatKickoff';
+import { formatFixtureIdentity } from './fixtureIdentity';
+import type { CompetitionIdentity } from './fixtureIdentity';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { humanizeTechnicalStatus } from './technicalStatus';
 
@@ -11,7 +13,7 @@ export interface RefinementHeartbeatLeague {
   modelled?: number;
 }
 
-export interface RefinementHeartbeatRadarEntry {
+export interface RefinementHeartbeatRadarEntry extends CompetitionIdentity {
   home: string;
   away: string;
   selection: string;
@@ -25,7 +27,7 @@ export interface RefinementHeartbeatRadarEntry {
   experimental?: boolean;
 }
 
-export interface RefinementHeartbeatClosedEntry {
+export interface RefinementHeartbeatClosedEntry extends CompetitionIdentity {
   home: string;
   away: string;
   selection: string;
@@ -35,9 +37,10 @@ export interface RefinementHeartbeatClosedEntry {
 }
 
 /** Datos ya decididos por el backend para resaltar una apuesta PAPER autorizada. */
-export interface RefinementHeartbeatApprovedBet {
+export interface RefinementHeartbeatApprovedBet extends CompetitionIdentity {
   home: string;
   away: string;
+  kickoffAt?: Date;
   selection: string;
   modelProbability?: number;
   offeredOdds?: number;
@@ -48,9 +51,10 @@ export interface RefinementHeartbeatApprovedBet {
   stakeCop?: number;
 }
 
-export interface RefinementHeartbeatNoBetEntry {
+export interface RefinementHeartbeatNoBetEntry extends CompetitionIdentity {
   home: string;
   away: string;
+  kickoffAt?: Date;
   reason: string;
 }
 
@@ -66,6 +70,13 @@ export interface RefinementHeartbeatInput {
   noOdds?: number;
   radar?: readonly RefinementHeartbeatRadarEntry[];
   closedFollowups?: readonly RefinementHeartbeatClosedEntry[];
+  /** Próxima ventana de evaluación T-6, con identidad completa del fixture. */
+  nextT6?: {
+    home: string;
+    away: string;
+    kickoffAt?: Date;
+    decisionAt?: Date;
+  } & CompetitionIdentity;
   approvedBets?: readonly RefinementHeartbeatApprovedBet[];
   noBetEntries?: readonly RefinementHeartbeatNoBetEntry[];
   bets?: number;
@@ -82,7 +93,12 @@ export interface RefinementHeartbeatInput {
   todayStarted?: number;
   todayExpired?: number;
   todayRejected?: number;
-  todayRejectionExamples?: readonly { home: string; away: string; reason: string }[];
+  todayRejectionExamples?: readonly (Partial<CompetitionIdentity> & {
+    home: string;
+    away: string;
+    reason: string;
+    kickoffAt?: Date;
+  })[];
   upcomingPreanalysis?: number;
   radarTodayShown?: number;
   radarUpcomingShown?: number;
@@ -90,30 +106,32 @@ export interface RefinementHeartbeatInput {
   budgetProvider?: string;
   budgetResetAt?: string;
   error?: string;
-  nextT6Fixture?: string;
-  nextT6At?: Date;
 }
-
-const RADAR_NUMBER_EMOJI = ['1️⃣', '2️⃣', '3️⃣'];
 
 /** Orden secundario determinista para kickoffs idénticos: equipos en orden alfabético. */
 function radarSortKey(entry: RefinementHeartbeatRadarEntry): string {
   return `${entry.home}${entry.away}`;
 }
 
-function formatRadarEntry(entry: RefinementHeartbeatRadarEntry, index: number): string[] {
+function formatRadarEntry(entry: RefinementHeartbeatRadarEntry): string[] {
   const status =
     entry.experimental === true
       ? '🧪 Experimental interliga · Todavía no apostar'
       : entry.noOdds === true
-        ? '👀 Preanálisis · Esperando cuotas'
-        : '👀 Preanálisis · Seguimiento activo';
+        ? '💰 SIN CUOTAS · pendiente de cuotas válidas'
+        : '🧠 PREANÁLISIS LISTO';
   return [
-    `${RADAR_NUMBER_EMOJI[index] ?? `${index + 1}.`} ${entry.home} vs ${entry.away}`,
-    ...(entry.kickoffAt === undefined ? [] : [`📅 ${formatKickoffBogota(entry.kickoffAt)}`]),
+    ...formatFixtureIdentity({
+      homeTeam: entry.home,
+      awayTeam: entry.away,
+      league: entry.league,
+      leagueId: entry.leagueId,
+      country: entry.country,
+      kickoffAt: entry.kickoffAt,
+    }),
     `${entry.marketEmoji ?? ''} ${entry.selection}`.trim(),
     `🧠 Probabilidad Kerberos: ${(entry.probability * 100).toFixed(1)}%`,
-    entry.noOdds === true ? status : '👀 Seguimiento activo',
+    status,
     ...(entry.experimental === true ? ['⚠️ Modelo interliga no habilitado para apostar.'] : []),
     ...(entry.shortHint === undefined ? [] : [`💡 ${entry.shortHint}`]),
   ];
@@ -144,10 +162,26 @@ function formatCop(value: number): string {
   return `${Math.round(value).toLocaleString('es-CO')} COP`;
 }
 
+function percent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 function formatApprovedBet(entry: RefinementHeartbeatApprovedBet): string[] {
-  const lines = [`${entry.home} vs ${entry.away}`, humanSelection(entry.selection)];
+  const lines = [
+    ...formatFixtureIdentity({
+      homeTeam: entry.home,
+      awayTeam: entry.away,
+      league: entry.league,
+      leagueId: entry.leagueId,
+      country: entry.country,
+      kickoffAt: entry.kickoffAt,
+    }),
+    '',
+    `🎯 Mercado: ${humanSelection(entry.selection)}`,
+    `🛡️ Risk Gate: ${entry.riskGate ?? 'APROBADO'}`,
+  ];
   if (entry.modelProbability !== undefined)
-    lines.push(`🧠 Kerberos: ${(entry.modelProbability * 100).toFixed(1)}%`);
+    lines.push(`🧠 Probabilidad Kerberos: ${(entry.modelProbability * 100).toFixed(1)}%`);
   if (entry.offeredOdds !== undefined)
     lines.push(`💰 Cuota actual: ${entry.offeredOdds.toFixed(2)}`);
   if (entry.minimumAcceptableOdds !== undefined)
@@ -158,10 +192,24 @@ function formatApprovedBet(entry: RefinementHeartbeatApprovedBet): string[] {
     lines.push(
       `💵 EV: ${entry.expectedValue >= 0 ? '+' : ''}${(entry.expectedValue * 100).toFixed(1)}%`,
     );
-  if (entry.riskGate !== undefined) lines.push(`🛡️ Risk Gate: ${entry.riskGate}`);
   if (entry.stakeCop !== undefined) lines.push(`💰 Stake autorizado: ${formatCop(entry.stakeCop)}`);
-  lines.push('', '👤 Ejecución manual');
+  lines.push('', '👤 EJECUCIÓN MANUAL');
   return lines;
+}
+
+function formatClosedFollowup(entry: RefinementHeartbeatClosedEntry): string[] {
+  return [
+    ...formatFixtureIdentity({
+      homeTeam: entry.home,
+      awayTeam: entry.away,
+      league: entry.league,
+      leagueId: entry.leagueId,
+      country: entry.country,
+      kickoffAt: entry.kickoffAt,
+    }),
+    `${humanSelection(entry.selection)} · ${percent(entry.probability)}`,
+    entry.reason,
+  ];
 }
 
 export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): string {
@@ -169,25 +217,33 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
   const approvedBets = input.approvedBets ?? [];
   const noBetEntries = input.noBetEntries ?? [];
 
+  const nextT6 = input.nextT6;
   const lines = [
     '⚽ KERBEROS SPORTS',
     '',
     '✅ Revisión completada',
     '',
     '📊 ESTADO',
-    `${totalDetected} partidos detectados`,
-    `${input.preAnalysisCount ?? 0} en preanálisis`,
-    `🎯 ${input.bets ?? 0} apuestas aprobadas`,
-    ...(input.nextT6Fixture === undefined || input.nextT6At === undefined
-      ? []
-      : [
-          '',
-          '⏭ PRÓXIMA EVALUACIÓN',
-          input.nextT6Fixture,
-          `🕐 ${formatKickoffBogota(input.nextT6At)}`,
-          '📌 En ese momento Kerberos revisará cuotas y valor de mercado.',
-        ]),
+    `Detectados: ${totalDetected}`,
+    `Modelados: ${input.preAnalysisCount ?? 0}`,
+    `🎯 Apuestas autorizadas: ${input.bets ?? 0}`,
   ];
+  if (nextT6 !== undefined && nextT6.decisionAt !== undefined) {
+    lines.push(
+      '',
+      '⏭ PRÓXIMA EVALUACIÓN',
+      ...formatFixtureIdentity({
+        homeTeam: nextT6.home,
+        awayTeam: nextT6.away,
+        league: nextT6.league,
+        leagueId: nextT6.leagueId,
+        country: nextT6.country,
+        kickoffAt: nextT6.kickoffAt,
+      }),
+      `⏳ Evaluación de mercado a las: ${formatKickoffBogota(nextT6.decisionAt)}`,
+      '📌 En ese momento Kerberos revisará cuotas y valor de mercado.',
+    );
+  }
 
   const radar = input.radar !== undefined && input.radar.length > 0 ? input.radar : [];
   if (radar.length > 0) {
@@ -202,19 +258,15 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
         const kickoffDiff = (a.kickoffAt?.getTime() ?? 0) - (b.kickoffAt?.getTime() ?? 0);
         return kickoffDiff !== 0 ? kickoffDiff : radarSortKey(a).localeCompare(radarSortKey(b));
       });
-    const renderSection = (
-      title: string,
-      entries: RefinementHeartbeatRadarEntry[],
-      offset: number,
-    ) => {
+    const renderSection = (title: string, entries: RefinementHeartbeatRadarEntry[]) => {
       lines.push('', title, '');
       entries.forEach((entry, index) => {
         if (index > 0) lines.push('─────────────', '');
-        lines.push(...formatRadarEntry(entry, offset + index));
+        lines.push(...formatRadarEntry(entry));
       });
     };
     if (today.length > 0) {
-      renderSection('🔥 PARTIDOS A SEGUIR', today, 0);
+      renderSection('🔥 PARTIDOS A SEGUIR', today);
       if ((input.todayPreanalysis ?? 0) > today.length)
         lines.push(
           '',
@@ -222,7 +274,7 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
         );
     }
     if (upcoming.length > 0) {
-      renderSection('🔥 PARTIDOS A SEGUIR', upcoming, today.length);
+      renderSection('🔥 PARTIDOS A SEGUIR', upcoming);
     }
   }
 
@@ -232,7 +284,18 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
       lines.push(
         ...input.todayRejectionExamples.slice(0, 3).flatMap((entry) => {
           const status = humanizeTechnicalStatus(entry.reason);
-          return [`• ${entry.home} vs ${entry.away}`, `  ${status.label}`];
+          return [
+            ...formatFixtureIdentity({
+              homeTeam: entry.home,
+              awayTeam: entry.away,
+              league: entry.league ?? '',
+              leagueId: entry.leagueId,
+              country: entry.country,
+              kickoffAt: entry.kickoffAt,
+            }),
+            `  ${status.label}`,
+            '',
+          ];
         }),
       );
       if (input.todayRejected > 3)
@@ -246,14 +309,24 @@ export function formatRefinementHeartbeat(input: RefinementHeartbeatInput): stri
   if (input.noBets !== undefined && input.noBets > 0) {
     lines.push('', '⚪ EVALUADOS — NO APOSTAR');
     lines.push(
-      ...noBetEntries
-        .slice(0, 3)
-        .flatMap((entry) => [
-          `• ${entry.home} vs ${entry.away}`,
-          `  Motivo: ${humanNoBetReason(entry.reason)}`,
-          '',
-        ]),
+      ...noBetEntries.slice(0, 3).flatMap((entry) => [
+        ...formatFixtureIdentity({
+          homeTeam: entry.home,
+          awayTeam: entry.away,
+          league: entry.league,
+          leagueId: entry.leagueId,
+          country: entry.country,
+          kickoffAt: entry.kickoffAt,
+        }),
+        `📌 Motivo: ${humanNoBetReason(entry.reason)}`,
+        '',
+      ]),
     );
+  }
+  const closedFollowups = input.closedFollowups ?? [];
+  if (closedFollowups.length > 0) {
+    lines.push('', '🏁 SEGUIMIENTO CERRADO');
+    lines.push(...closedFollowups.slice(0, 3).flatMap(formatClosedFollowup));
   }
   if (input.oddsUnavailable !== undefined && input.oddsUnavailable > 0)
     lines.push('', `💰 Sin cuotas: ${input.oddsUnavailable}`);

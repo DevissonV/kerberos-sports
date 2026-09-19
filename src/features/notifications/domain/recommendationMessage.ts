@@ -1,9 +1,9 @@
-/** Formatter Telegram neutral para recomendaciones accionables en modo PAPER. */
+/** Formatter Telegram para la apuesta autorizada (PAPER, ejecución manual). */
 
 import type { Recommendation } from '../../recommendations/domain/recommendation';
 import type { ProductionRiskDecision } from '../../production-risk/domain/productionRiskGate';
 import { marketLanguage } from './marketLanguage';
-import { formatKickoffBogota } from './formatKickoff';
+import { formatFixtureIdentity } from './fixtureIdentity';
 
 const STAKE_TIERS_COP = [10_000, 15_000, 20_000] as const;
 
@@ -25,8 +25,9 @@ export interface RecommendationMessageOptions {
   currentRealBankrollCop: number;
   /** Decisión ya emitida por ProductionRiskService; el formatter no calcula riesgo. */
   riskDecision: ProductionRiskDecision;
-  /** Fecha/hora de kickoff del fixture para presentación (hora Bogotá). */
+  /** Identidad de fixture para la cabecera (equipos, torneo, fecha/hora Bogotá). */
   kickoffAt?: Date;
+  competitionName?: string;
 }
 
 /** Un NO_BET no genera texto de ejecución ni se puede enviar como pick. */
@@ -64,33 +65,35 @@ export function formatRecommendationTelegramMessage(
       authorized ? '✅ AUTORIZADA' : '🔒 NO AUTORIZADA',
     ];
   });
+  const [homeTeam = matchName, , awayTeam = ''] = matchName.split(' vs ');
+  const identity = formatFixtureIdentity({
+    homeTeam,
+    awayTeam,
+    league: recommendation.league,
+    kickoffAt: options.kickoffAt,
+  });
 
   return [
-    '⚽ KERBEROS SPORTS — OPORTUNIDAD',
+    '🚨 APUESTA AUTORIZADA',
     '',
-    recommendation.league,
-    matchName,
-    ...(options.kickoffAt === undefined ? [] : [`🗓️ ${formatKickoffBogota(options.kickoffAt)}`]),
+    ...identity,
     '',
-    '🎯 QUÉ DEBES APOSTAR',
-    '',
-    market.title,
-    '',
-    '👉 En palabras simples:',
-    market.explanation,
-    '',
+    `🎯 Mercado: ${market.title}`,
+    `👉 En palabras simples: ${market.explanation}`,
     `✅ Ganas con: ${market.winningExamples}`,
     `❌ Pierdes con: ${market.losingExamples}`,
     '',
     '📊 ANÁLISIS KERBEROS',
     '',
-    `Probabilidad Kerberos: ${percent(recommendation.modelProbability)}`,
+    `🧠 Probabilidad Kerberos: ${percent(recommendation.modelProbability)}`,
     `Probabilidad justa mercado: ${percent(recommendation.fairMarketProbability)}`,
-    `Ventaja: ${signedPercent(recommendation.edge)} puntos`,
-    ...(options.expectedValue === undefined ? [] : [`EV: ${signedPercent(options.expectedValue)}`]),
+    `📈 Ventaja: ${signedPercent(recommendation.edge)} puntos`,
+    ...(options.expectedValue === undefined
+      ? []
+      : [`💵 EV: ${signedPercent(options.expectedValue)}`]),
     '',
-    `Cuota observada: ${recommendation.observedOdds.toFixed(2)}`,
-    `Cuota mínima aceptable: ${recommendation.minimumAcceptableOdds.toFixed(2)}`,
+    `💰 Cuota actual: ${recommendation.observedOdds.toFixed(2)}`,
+    `🎯 Cuota mínima aceptable: ${recommendation.minimumAcceptableOdds.toFixed(2)}`,
     `Si la cuota actual es menor que ${recommendation.minimumAcceptableOdds.toFixed(2)}, NO APUESTES.`,
     '',
     '💰 TAMAÑO DE APUESTA',
@@ -99,13 +102,9 @@ export function formatRecommendationTelegramMessage(
     '',
     ...tierLines,
     '',
-    '🎯 APUESTA INDICADA:',
-    cop(selectedStake),
-    '',
     `🛡️ Risk Gate: ${options.riskDecision.status === 'APPROVED' ? 'APROBADO' : 'APROBADO CON REDUCCIÓN'}`,
-    `⏰ Válida hasta: ${recommendation.expiresAt.toISOString().slice(11, 16)}`,
+    `💰 Stake autorizado: ${cop(selectedStake)}`,
     '',
-    '✅ APUESTA AUTORIZADA',
     '👤 EJECUCIÓN MANUAL',
   ].join('\n');
 }

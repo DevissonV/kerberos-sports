@@ -62,19 +62,25 @@ const analysis: QuantFixtureAnalysis = {
   reason: 'EDGE',
 };
 
-it('muestra NO_BET breve, sin stake ejecutable', () => {
+it('muestra NO_BET con identidad completa, sin stake ejecutable', () => {
   const message = formatQuantAnalysisMessage(analysis);
-  expect(message).toContain('Barcelona vs Sevilla');
-  expect(message).toContain('⚪ KERBEROS SPORTS — NO APOSTAR');
+  expect(message).toContain('⚪ NO APOSTAR');
+  expect(message).toContain('⚽ Barcelona vs Sevilla');
+  expect(message).toContain('🏆 LaLiga');
+  expect(message).toContain('📅 20 Sep 2026 · 🕐 2:00 p. m.');
   expect(message).toContain('MÁS DE 2.5 GOLES');
-  expect(message).toContain('💰 Apostar: 0 COP');
   expect(message).not.toContain('Stake sugerido');
+  expect(message).not.toMatch(/\bBET\b/);
 });
 
-it('muestra preview como no ejecutable', () => {
+it('muestra la evaluación de mercado como no ejecutable todavía', () => {
   const message = formatQuantAnalysisMessage({ ...analysis, decision: 'BET' });
-  expect(message).toContain('👀 PREANÁLISIS — NO APOSTAR TODAVÍA');
-  expect(message).toContain('Stake: NO DISPONIBLE');
+  expect(message).toContain('🔎 EVALUANDO CUOTAS');
+  expect(message).toContain('⚽ Barcelona vs Sevilla');
+  expect(message).toContain('🏆 LaLiga');
+  expect(message).toContain('📅 20 Sep 2026 · 🕐 2:00 p. m.');
+  expect(message).toContain('💵 EV: -5.9%');
+  expect(message).not.toContain('Stake sugerido');
 });
 
 it('renderiza contexto sin darle autoridad de apuesta', () => {

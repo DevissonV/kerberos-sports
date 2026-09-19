@@ -52,7 +52,8 @@ describe('formatRecommendationTelegramMessage', () => {
     expect(message).toContain('🟢 10.000 COP — 2.0%\n✅ AUTORIZADA');
     expect(message).toContain('🟡 15.000 COP — 3.0%\n🔒 NO AUTORIZADA');
     expect(message).toContain('🔴 20.000 COP — 4.0%\n🔒 NO AUTORIZADA');
-    expect(message).toContain('🎯 APUESTA INDICADA:\n10.000 COP');
+    expect(message).toContain('🚨 APUESTA AUTORIZADA');
+    expect(message).toContain('💰 Stake autorizado: 10.000 COP');
     expect(message).toContain('👤 EJECUCIÓN MANUAL');
   });
 

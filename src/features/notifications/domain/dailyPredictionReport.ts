@@ -5,7 +5,7 @@ import {
   sampleSizeLabel,
 } from '../../prediction-ledger/domain/metrics';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
-import { formatKickoffBogota } from './formatKickoff';
+import { formatFixtureIdentity } from './fixtureIdentity';
 
 const percent = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
@@ -63,11 +63,16 @@ export function formatDailyPredictionReport(
     for (const prediction of resolved)
       lines.push(
         '',
-        `${prediction.result === 'HIT' ? '✅' : '❌'} ${prediction.homeTeam} vs ${prediction.awayTeam}`,
-        `${prediction.league} · 🗓️ ${formatKickoffBogota(prediction.kickoffAt)}`,
-        prediction.selection === 'OVER_2_5' ? 'MÁS DE 2.5' : 'MENOS DE 2.5',
-        `Kerberos: ${percent(prediction.modelProbability)}`,
-        `Final: ${prediction.finalScoreHome}-${prediction.finalScoreAway}`,
+        `${prediction.result === 'HIT' ? '✅ PREDICCIÓN ACERTADA' : '❌ PREDICCIÓN FALLADA'}`,
+        ...formatFixtureIdentity({
+          homeTeam: prediction.homeTeam,
+          awayTeam: prediction.awayTeam,
+          league: prediction.league,
+          kickoffAt: prediction.kickoffAt,
+        }),
+        `🎯 Predicción: ${prediction.selection === 'OVER_2_5' ? 'MÁS DE 2.5 GOLES' : 'MENOS DE 2.5 GOLES'}`,
+        `🧠 Probabilidad Kerberos: ${percent(prediction.modelProbability)}`,
+        `🏁 Final: ${prediction.finalScoreHome}-${prediction.finalScoreAway}`,
       );
   }
   if (pending > 0)
@@ -76,13 +81,18 @@ export function formatDailyPredictionReport(
     '',
     '─────────────',
     '',
-    '💰 APUESTAS',
+    '💰 APUESTAS REALES',
     `Autorizadas: ${authorized}`,
     `Ejecutadas: ${executed}`,
+    ...(executed === 0
+      ? ['(Sin apuestas ejecutadas: el modelo se evalúa solo con predicciones.)']
+      : [
+          `PnL real disponible en el ledger de apuestas ejecutadas; el resumen de predicciones no lo recalcula.`,
+        ]),
     '',
     '─────────────',
     '',
-    '📈 HISTÓRICO ACUMULADO',
+    '🧠 RENDIMIENTO DEL MODELO',
     `Predicciones resueltas: ${cumulative.settledPredictions}`,
     `✅ ${cumulative.hits}`,
     `❌ ${cumulative.misses}`,

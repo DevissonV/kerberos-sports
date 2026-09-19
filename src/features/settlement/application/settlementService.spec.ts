@@ -103,7 +103,7 @@ describe('SettlementService', () => {
     expect(store.findById('7')?.status).toBe('OPEN');
     expect(first.metrics.currentBankroll).toBeCloseTo(998);
     expect(sent).toHaveLength(5);
-    expect(sent[0]).toContain('KERBEROS SPORTS — RESULTADO');
+    expect(sent[0]).toContain('🏁 RESULTADO FINAL');
 
     const second = await service.settleOpenBets();
     expect(second.settled).toBe(0);

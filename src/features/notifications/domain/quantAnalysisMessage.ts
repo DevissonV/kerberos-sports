@@ -1,58 +1,54 @@
 import type { QuantFixtureAnalysis } from '../../quant/application/quantPipeline';
-import { findLeagueDefinition } from '../../scanning/domain/leagueUniverse';
 import { marketLanguage } from './marketLanguage';
-import { formatKickoffBogota } from './formatKickoff';
+import { formatFixtureIdentity } from './fixtureIdentity';
 import type { AnalystOutput } from '../../llm-analyst/domain/contracts';
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-/** Presenta una decisión sin convertir un análisis en una instrucción de ejecución. */
 export function formatQuantAnalysisMessage(
   analysis: QuantFixtureAnalysis,
   context?: AnalystOutput,
 ): string | null {
   if (analysis.side === undefined) return null;
-  const league = findLeagueDefinition(analysis.fixture)?.heartbeatLabel ?? analysis.fixture.league;
   const market = marketLanguage(analysis.side.selection);
-  const kickoff = formatKickoffBogota(analysis.fixture.kickoffAt);
+  const identity = formatFixtureIdentity({
+    homeTeam: analysis.fixture.homeTeam,
+    awayTeam: analysis.fixture.awayTeam,
+    league: analysis.fixture.league,
+    leagueId: analysis.fixture.leagueId,
+    country: analysis.fixture.country,
+    kickoffAt: analysis.fixture.kickoffAt,
+  });
   if (analysis.decision === 'BET') {
     return [
-      '👀 PREANÁLISIS — NO APOSTAR TODAVÍA',
+      '🔎 EVALUANDO CUOTAS',
       '',
-      league,
-      `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
-      `🗓️ ${kickoff}`,
+      ...identity,
       '',
-      market.title,
-      market.explanation,
+      `🎯 Predicción: ${market.title}`,
+      `🧠 Kerberos: ${percent(analysis.side.modelProbability)}`,
+      `💰 Cuota: ${analysis.side.offeredOdds.toFixed(2)}`,
+      `🎯 Cuota mínima: ${analysis.side.minimumAcceptableOdds.toFixed(2)}`,
+      `📈 Edge: ${analysis.side.edge >= 0 ? '+' : ''}${(analysis.side.edge * 100).toFixed(1)} pp`,
+      `💵 EV: ${analysis.side.expectedValue >= 0 ? '+' : ''}${(analysis.side.expectedValue * 100).toFixed(1)}%`,
       '',
-      `Probabilidad Kerberos: ${percent(analysis.side.modelProbability)}`,
-      'Stake: NO DISPONIBLE',
-      'Próxima revisión: T-6',
+      '⚠️ Espera la autorización de riesgo antes de actuar.',
       ...formatAnalystContext(context),
     ].join('\n');
   }
   return [
-    '⚪ KERBEROS SPORTS — NO APOSTAR',
+    '⚪ NO APOSTAR',
     '',
-    league,
-    `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
-    `🗓️ ${kickoff}`,
+    ...identity,
     '',
-    'Mercado analizado:',
-    market.title,
-    `= ${market.explanation.charAt(0).toLowerCase()}${market.explanation.slice(1)}`,
+    `🎯 Predicción analizada: ${market.title}`,
+    `🧠 Kerberos: ${percent(analysis.side.modelProbability)}`,
+    `💰 Cuota observada: ${analysis.side.offeredOdds.toFixed(2)}`,
+    `📌 Motivo: ${reasonLabel(analysis.reason, analysis.side)}`,
     '',
-    '❌ NO APOSTAR',
-    '',
-    `Motivo: ${reasonLabel(analysis.reason, analysis.side)}`,
-    '',
-    `Cuota actual: ${analysis.side.offeredOdds.toFixed(2)}`,
-    `Cuota mínima: ${analysis.side.minimumAcceptableOdds.toFixed(2)}`,
-    '',
-    '💰 Apostar: 0 COP',
+    '⚠️ Todavía no es una apuesta aprobada.',
     ...formatAnalystContext(context),
   ].join('\n');
 }

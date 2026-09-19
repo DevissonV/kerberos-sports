@@ -20,5 +20,6 @@ export function formatQuantPaperMessageFor(
     currentRealBankrollCop,
     riskDecision: recommendation.riskDecision,
     kickoffAt: bet.kickoff,
+    competitionName: bet.league,
   });
 }

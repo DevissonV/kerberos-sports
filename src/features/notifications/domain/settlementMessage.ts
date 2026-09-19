@@ -1,6 +1,6 @@
 import type { PaperBet } from '../../paper-betting/domain/concepts';
 import { marketLanguage } from './marketLanguage';
-import { formatKickoffBogota } from './formatKickoff';
+import { formatFixtureIdentity } from './fixtureIdentity';
 
 function cop(value: number): string {
   return `${Math.round(value).toLocaleString('es-CO')} COP`;
@@ -8,27 +8,39 @@ function cop(value: number): string {
 
 export function formatSettlementMessage(bet: PaperBet, bankroll: number): string {
   const status =
-    bet.status === 'WON' ? '✅ GANADA' : bet.status === 'LOST' ? '❌ PERDIDA' : '↩️ VOID/PUSH';
+    bet.status === 'WON'
+      ? '✅ GANADA'
+      : bet.status === 'LOST'
+        ? '❌ PERDIDA'
+        : '↩️ ANULADA/DEVUELTA';
   const pnl = bet.pnl ?? 0;
   const grossReturn =
     bet.status === 'WON' ? bet.stake * bet.placedOdds : bet.status === 'VOID' ? bet.stake : 0;
   const market = marketLanguage(bet.selection as 'OVER_2_5' | 'UNDER_2_5');
   const clv = bet.closingOdds === undefined ? undefined : bet.placedOdds / bet.closingOdds - 1;
+  const betResult = bet.result && /^\d+-\d+$/.test(bet.result) ? bet.result : '—';
+  const finalLine =
+    bet.finalHomeGoals !== undefined && bet.finalAwayGoals !== undefined
+      ? `Final: ${bet.result && /^\d+-\d+$/.test(bet.result) ? bet.result : `${bet.finalHomeGoals}-${bet.finalAwayGoals}`}`
+      : `Final: ${betResult}`;
   return [
-    '⚽ KERBEROS SPORTS — RESULTADO',
+    '🏁 RESULTADO FINAL',
+    `${status}`,
     '',
-    bet.league,
-    `${bet.homeTeam} vs ${bet.awayTeam}`,
-    `🗓️ ${formatKickoffBogota(bet.kickoff)}`,
+    ...formatFixtureIdentity({
+      homeTeam: bet.homeTeam,
+      awayTeam: bet.awayTeam,
+      league: bet.league,
+      kickoffAt: bet.kickoff,
+    }),
     '',
-    status,
+    finalLine,
     '',
-    `Apuesta: ${market.title}`,
-    `Resultado: ${bet.result && /^\d+-\d+$/.test(bet.result) ? bet.result : '—'}`,
-    `Stake real: ${cop(bet.stake)}`,
-    `Cuota real ejecutada: ${bet.placedOdds.toFixed(2)}`,
+    `🎯 Mercado: ${market.title}`,
+    `💵 Stake real: ${cop(bet.stake)}`,
+    `💰 Cuota real ejecutada: ${bet.placedOdds.toFixed(2)}`,
     `Retorno: ${cop(grossReturn)}`,
-    `PnL: ${pnl >= 0 ? '+' : ''}${cop(pnl)}`,
+    `📈 PnL: ${pnl >= 0 ? '+' : ''}${cop(pnl)}`,
     `Bankroll antes: ${cop(bet.bankrollBefore)}`,
     `Bankroll después: ${cop(bankroll)}`,
     ...(clv === undefined ? [] : [`CLV: ${clv >= 0 ? '+' : ''}${(clv * 100).toFixed(1)}%`]),

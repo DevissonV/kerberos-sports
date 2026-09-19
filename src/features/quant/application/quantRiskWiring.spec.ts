@@ -59,7 +59,8 @@ describe('cableado QUANT → recomendación → riesgo → Telegram', () => {
       riskService({ betsToday: 0, dailyExposureCop: 0, dailyLossCop: 0, openBets: 0 }),
       500_000,
     );
-    expect(message).toContain('🎯 APUESTA INDICADA:\n10.000 COP');
+    expect(message).toContain('🚨 APUESTA AUTORIZADA');
+    expect(message).toContain('💰 Stake autorizado: 10.000 COP');
     expect(message).toContain('EV: +20.0%');
     expect(message).toContain('👤 EJECUCIÓN MANUAL');
   });

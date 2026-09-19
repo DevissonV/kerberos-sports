@@ -34,7 +34,7 @@ describe('observabilidad de fixtures', () => {
     const output = String(write.mock.calls[0]?.[0]);
     expect(output).toContain('PREANALYSIS_FIXTURE');
     expect(output).toContain('kickoffAtUtc":"2026-09-15T16:30:00.000Z');
-    expect(output).toContain('kickoffAtBogota":"15 Sep · 11:30');
+    expect(output).toContain('kickoffAtBogota":"15 Sep 2026 · 11:30');
     expect(output).toContain('hoursUntilKickoff":8');
     expect(output).toContain('t6Eligible":false');
     expect(output).not.toMatch(/API_FOOTBALL_KEY|ODDSPAPI_KEY|TELEGRAM_BOT_TOKEN/);

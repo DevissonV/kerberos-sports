@@ -33,8 +33,7 @@ describe('formatRefinementHeartbeat', () => {
       },
     });
     expect(message).toContain('⚽ KERBEROS SPORTS');
-    expect(message).toContain('6 partidos detectados');
-    expect(message).toContain('0 en preanálisis');
+    expect(message).toContain('Detectados: 6');
     expect(message).toContain('✅ Revisión completada');
     expect(message).toContain('⚠️ Límite de consultas alcanzado temporalmente');
     expect(message).not.toContain('BUDGET_GUARD');
@@ -60,7 +59,7 @@ describe('formatRefinementHeartbeat', () => {
         lunaCalls: 1,
       },
     });
-    expect(message).toContain('5 partidos detectados');
+    expect(message).toContain('Detectados: 5');
     expect(message).not.toContain('NO_BET');
     expect(message).not.toContain('Oportunidades QUANT');
   });
@@ -70,13 +69,21 @@ describe('formatRefinementHeartbeat', () => {
       now: new Date('2026-09-15T08:30:00Z'),
       openBets: 0,
       byLeague: [{ leagueId: 39, status: 'MODEL_ENABLED', fixturesDetected: 1 }],
-      nextT6Fixture: 'Arsenal vs Chelsea',
-      nextT6At: new Date('2026-09-15T10:30:00Z'),
+      nextT6: {
+        home: 'Arsenal',
+        away: 'Chelsea',
+        league: 'Premier League',
+        country: 'England',
+        kickoffAt: new Date('2026-09-15T16:30:00Z'),
+        decisionAt: new Date('2026-09-15T10:30:00Z'),
+      },
       counters: BASE_COUNTERS,
     });
     expect(message).toContain('⏭ PRÓXIMA EVALUACIÓN');
     expect(message).toContain('Arsenal vs Chelsea');
-    expect(message).toContain('🕐 15 Sep · 5:30 a. m.');
+    expect(message).toContain('🏆 Premier League');
+    expect(message).toContain('⏳ Evaluación de mercado a las: 15 Sep 2026 · 5:30 a. m.');
+    expect(message).toContain('📅 15 Sep 2026 · 🕐 11:30 a. m.');
     expect(message).not.toContain('NEXT_T6');
     expect(message).not.toContain('fixtureId');
   });
@@ -91,7 +98,7 @@ describe('formatRefinementHeartbeat', () => {
       ],
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('7 partidos detectados');
+    expect(message).toContain('Detectados: 7');
   });
 
   it('muestra el radar en lenguaje humano sin enums técnicos', () => {
@@ -108,6 +115,8 @@ describe('formatRefinementHeartbeat', () => {
           shortHint: 'Máximo 2 goles',
           marketEmoji: '🔵',
           probability: 0.586,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-17T19:30:00Z'),
         },
       ],
@@ -132,15 +141,17 @@ describe('formatRefinementHeartbeat', () => {
           shortHint: 'Máximo 2 goles',
           marketEmoji: '🔵',
           probability: 0.586,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-17T19:30:00Z'),
         },
       ],
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('1️⃣ Málaga vs Villarreal');
+    expect(message).toContain('⚽ Málaga vs Villarreal');
     expect(message).not.toContain('─────────────');
-    expect(message).toContain('📅 17 Sep · 2:30 p. m.');
-    expect(message).toContain('👀 Seguimiento activo');
+    expect(message).toContain('📅 17 Sep 2026 · 🕐 2:30 p. m.');
+    expect(message).toContain('🧠 PREANÁLISIS LISTO');
     const warningMatches = message.match(/Todavía no hay apuestas aprobadas\./g) ?? [];
     expect(warningMatches).toHaveLength(1);
     expect(message).not.toContain('NO APOSTAR TODAVÍA');
@@ -160,6 +171,8 @@ describe('formatRefinementHeartbeat', () => {
           shortHint: 'Necesitamos 3+ goles',
           marketEmoji: '🟢',
           probability: 0.658,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-18T18:00:00Z'),
         },
         {
@@ -169,6 +182,8 @@ describe('formatRefinementHeartbeat', () => {
           shortHint: 'Máximo 2 goles',
           marketEmoji: '🔵',
           probability: 0.586,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-17T19:30:00Z'),
         },
       ],
@@ -178,8 +193,8 @@ describe('formatRefinementHeartbeat', () => {
     const groningenIndex = message.indexOf('Groningen vs PEC Zwolle');
     expect(maligaIndex).toBeGreaterThan(-1);
     expect(groningenIndex).toBeGreaterThan(maligaIndex);
-    expect(message).toContain('1️⃣ Málaga vs Villarreal');
-    expect(message).toContain('2️⃣ Groningen vs PEC Zwolle');
+    expect(message).toContain('⚽ Málaga vs Villarreal');
+    expect(message).toContain('⚽ Groningen vs PEC Zwolle');
     expect(message).toContain('─────────────');
   });
 
@@ -197,6 +212,7 @@ describe('formatRefinementHeartbeat', () => {
           selection: 'MÁS DE 2.5 GOLES',
           shortHint: 'Necesitamos 3+ goles',
           marketEmoji: '🟢',
+          league: 'Premier League',
           probability: 0.6,
           kickoffAt: sameKickoff,
         },
@@ -206,6 +222,7 @@ describe('formatRefinementHeartbeat', () => {
           selection: 'MENOS DE 2.5 GOLES',
           shortHint: 'Máximo 2 goles',
           marketEmoji: '🔵',
+          league: 'Premier League',
           probability: 0.55,
           kickoffAt: sameKickoff,
         },
@@ -232,14 +249,16 @@ describe('formatRefinementHeartbeat', () => {
           shortHint: 'Máximo 2 goles',
           marketEmoji: '🔵',
           probability: 0.586,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-17T19:30:00Z'),
           noOdds: true,
         },
       ],
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('👀 Preanálisis · Esperando cuotas');
-    expect(message).not.toContain('Seguimiento activo');
+    expect(message).toContain('💰 SIN CUOTAS · pendiente de cuotas válidas');
+    expect(message).not.toContain('PREANÁLISIS LISTO');
   });
 
   it('presenta descartes de hoy en bloques humanos y conserva el conteo', () => {
@@ -256,11 +275,12 @@ describe('formatRefinementHeartbeat', () => {
       counters: BASE_COUNTERS,
     });
     expect(message).toContain('ℹ️ FUERA DE SEGUIMIENTO HOY');
-    expect(message).toContain('• Real Betis vs Getafe\n  ⏱️ Partido ya iniciado');
-    expect(message).toContain('• Málaga vs Villarreal\n  ⏱️ Ventana prepartido cerrada');
-    expect(message).toContain(
-      '• Bucaramanga vs Medellín\n  👀 Liga todavía no habilitada para modelado',
-    );
+    expect(message).toContain('⚽ Real Betis vs Getafe');
+    expect(message).toContain('  ⏱️ Partido ya iniciado');
+    expect(message).toContain('⚽ Málaga vs Villarreal');
+    expect(message).toContain('  ⏱️ Ventana prepartido cerrada');
+    expect(message).toContain('⚽ Bucaramanga vs Medellín');
+    expect(message).toContain('  👀 Liga todavía no habilitada para modelado');
     expect(message).not.toContain('MATCH_STARTED');
     expect(message).not.toContain('OBSERVATION_ONLY');
   });
@@ -291,9 +311,9 @@ describe('formatRefinementHeartbeat', () => {
       bets: 0,
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('11 partidos detectados');
-    expect(message).toContain('2 en preanálisis');
-    expect(message).toContain('🎯 0 apuestas aprobadas');
+    expect(message).toContain('Detectados: 11');
+    expect(message).toContain('Modelados: 2');
+    expect(message).toContain('🎯 Apuestas autorizadas: 0');
   });
 
   it('no muestra advertencia final ni sección de radar cuando no hay partidos en preanálisis', () => {
@@ -320,14 +340,16 @@ describe('formatRefinementHeartbeat', () => {
           away: 'Villarreal',
           selection: 'MENOS DE 2.5 GOLES',
           probability: 0.586,
+          league: 'Premier League',
+          country: 'England',
           kickoffAt: new Date('2026-09-17T19:30:00Z'),
           reason: 'Partido iniciado / ventana prepartido cerrada',
         },
       ],
     });
+    expect(message).toContain('🏁 SEGUIMIENTO CERRADO');
     expect(message).not.toContain('⏱️ Seguimiento cerrado');
-    expect(message).not.toContain('Preanálisis previo: 58.6%');
-    expect(message).not.toContain('Partido iniciado / ventana prepartido cerrada');
+    expect(message).toContain('Partido iniciado / ventana prepartido cerrada');
   });
 
   it('oculta contadores en cero y muestra los que tienen valor', () => {
@@ -357,6 +379,7 @@ describe('formatRefinementHeartbeat', () => {
           home: 'Mañana',
           away: 'Visitante',
           selection: 'MÁS DE 2.5 GOLES',
+          league: 'Premier League',
           probability: 0.591,
           kickoffAt: new Date('2026-09-19T12:00:00Z'),
         },
@@ -364,6 +387,7 @@ describe('formatRefinementHeartbeat', () => {
           home: 'Hoy',
           away: 'Local',
           selection: 'MENOS DE 2.5 GOLES',
+          league: 'Premier League',
           probability: 0.546,
           kickoffAt: new Date('2026-09-18T18:00:00Z'),
         },
@@ -371,7 +395,7 @@ describe('formatRefinementHeartbeat', () => {
       counters: BASE_COUNTERS,
     });
     expect(message.indexOf('Hoy vs Local')).toBeLessThan(message.indexOf('Mañana vs Visitante'));
-    expect(message).toContain('📅 18 Sep · 1:00 p. m.');
+    expect(message).toContain('📅 18 Sep 2026 · 🕐 1:00 p. m.');
     expect(message).toContain('🧠 Probabilidad Kerberos: 54.6%');
   });
 
@@ -385,6 +409,7 @@ describe('formatRefinementHeartbeat', () => {
           home: 'Bayern München',
           away: 'Union Berlin',
           selection: 'OVER_2_5',
+          league: 'Bundesliga',
           modelProbability: 0.624,
           offeredOdds: 1.91,
           minimumAcceptableOdds: 1.72,
@@ -398,7 +423,7 @@ describe('formatRefinementHeartbeat', () => {
       counters: BASE_COUNTERS,
     });
     expect(message).toContain('🎯 LISTA PARA EJECUCIÓN');
-    expect(message).toContain('🧠 Kerberos: 62.4%');
+    expect(message).toContain('🧠 Probabilidad Kerberos: 62.4%');
     expect(message).toContain('💰 Cuota actual: 1.91');
     expect(message).toContain('🎯 Cuota mínima: 1.72');
     expect(message).toContain('📈 Edge: +6.2 pp');

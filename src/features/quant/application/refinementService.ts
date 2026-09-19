@@ -141,7 +141,12 @@ export interface RefinementTickSummary {
   radarUpcomingShown?: number;
   nextT6FixtureId?: string;
   nextT6Fixture?: string;
+  nextT6Home?: string;
+  nextT6Away?: string;
   nextT6League?: string;
+  nextT6LeagueId?: number;
+  nextT6Country?: string;
+  nextT6KickoffAt?: string;
   nextT6KickoffBogota?: string;
   nextT6HoursRemaining?: number;
   nextT6At?: string;
@@ -346,6 +351,9 @@ export class RefinementService {
       fixtureId?: string;
       home: string;
       away: string;
+      league: string;
+      leagueId?: number;
+      country?: string;
       selection: string;
       explanation: string;
       shortHint: string;
@@ -442,7 +450,12 @@ export class RefinementService {
       const nextT6 = nextT6Fixture(precheck.preAnalysisFixtures ?? [], now);
       tick.nextT6FixtureId = nextT6?.fixture.id;
       tick.nextT6Fixture = nextT6?.fixtureLabel;
+      tick.nextT6Home = nextT6?.fixture.homeTeam;
+      tick.nextT6Away = nextT6?.fixture.awayTeam;
       tick.nextT6League = nextT6?.fixture.league;
+      tick.nextT6LeagueId = nextT6?.fixture.leagueId;
+      tick.nextT6Country = nextT6?.fixture.country;
+      tick.nextT6KickoffAt = nextT6?.fixture.kickoffAt.toISOString();
       tick.nextT6KickoffBogota = nextT6?.fixture.kickoffAt
         ? formatKickoffBogota(nextT6.fixture.kickoffAt)
         : undefined;
@@ -472,6 +485,9 @@ export class RefinementService {
           fixtureId: analysis.fixture.id,
           home: analysis.fixture.homeTeam,
           away: analysis.fixture.awayTeam,
+          league: analysis.fixture.league,
+          leagueId: analysis.fixture.leagueId,
+          country: analysis.fixture.country,
           selection: market.title,
           explanation: market.explanation,
           shortHint: market.shortHint,
@@ -636,6 +652,10 @@ export class RefinementService {
             home: analysis.fixture.homeTeam,
             away: analysis.fixture.awayTeam,
             reason: analysis.reason ?? 'INSUFFICIENT_DATA',
+            league: analysis.fixture.league,
+            leagueId: analysis.fixture.leagueId,
+            country: analysis.fixture.country,
+            kickoffAt: analysis.fixture.kickoffAt,
           }));
         tick.noBetCount = tick.noBets;
         tick.insufficientData = result.result.rejected?.MODEL_DATA ?? 0;
@@ -733,6 +753,8 @@ export class RefinementService {
         .map((bet) => ({
           home: bet.homeTeam,
           away: bet.awayTeam,
+          league: bet.league,
+          kickoffAt: bet.kickoff,
           selection: bet.selection,
           modelProbability: bet.modelProbability,
           offeredOdds: bet.placedOdds,
@@ -814,8 +836,21 @@ export class RefinementService {
           upcomingPreanalysis: tick.upcomingPreanalysis,
           radarTodayShown: tick.radarTodayShown,
           radarUpcomingShown: tick.radarUpcomingShown,
-          nextT6Fixture: tick.nextT6Fixture,
-          nextT6At: tick.nextT6At === undefined ? undefined : new Date(tick.nextT6At),
+          nextT6:
+            tick.nextT6Home !== undefined &&
+            tick.nextT6League !== undefined &&
+            tick.nextT6At !== undefined
+              ? {
+                  home: tick.nextT6Home,
+                  away: tick.nextT6Away ?? tick.nextT6Home,
+                  league: tick.nextT6League,
+                  leagueId: tick.nextT6LeagueId,
+                  country: tick.nextT6Country,
+                  kickoffAt:
+                    tick.nextT6KickoffAt === undefined ? undefined : new Date(tick.nextT6KickoffAt),
+                  decisionAt: new Date(tick.nextT6At),
+                }
+              : undefined,
         });
         const material = {
           radar: radar.map((entry) => ({
@@ -875,6 +910,9 @@ export class RefinementService {
         return {
           home: entry.fixture.homeTeam,
           away: entry.fixture.awayTeam,
+          league: entry.fixture.league,
+          leagueId: entry.fixture.leagueId,
+          country: entry.fixture.country,
           selection: market.title,
           probability: Math.max(entry.model.pOver, entry.model.pUnder),
           kickoffAt: entry.fixture.kickoffAt,

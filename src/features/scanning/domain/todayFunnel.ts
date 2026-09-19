@@ -33,7 +33,16 @@ export interface TodayFunnel {
   /** Nota de calidad (no exclusión): equipos con rol local/visitante bajo el mínimo. */
   insufficientHistory: number;
   rejectionBreakdown: Record<TodayExclusionReason, number>;
-  rejectionExamples: readonly { home: string; away: string; reason: TodayExclusionReason }[];
+  /** Muestra de exclusiones con datos del backend (sin IDs técnicos); sirve a la UI. */
+  rejectionExamples: readonly {
+    home: string;
+    away: string;
+    reason: TodayExclusionReason;
+    league: string;
+    leagueId?: number;
+    country?: string;
+    kickoffAt: Date;
+  }[];
 }
 
 const EMPTY_REASONS: Record<TodayExclusionReason, number> = {
@@ -65,12 +74,28 @@ export function classifyTodayFixtures(
   let aliasReady = 0;
   let insufficientHistory = 0;
   let marketWindow = 0;
-  const rejectionExamples: { home: string; away: string; reason: TodayExclusionReason }[] = [];
+  const rejectionExamples: {
+    home: string;
+    away: string;
+    reason: TodayExclusionReason;
+    league: string;
+    leagueId?: number;
+    country?: string;
+    kickoffAt: Date;
+  }[] = [];
 
   const record = (fixture: Fixture, reason: TodayExclusionReason): void => {
     reasons[reason] += 1;
     if (rejectionExamples.length < 3)
-      rejectionExamples.push({ home: fixture.homeTeam, away: fixture.awayTeam, reason });
+      rejectionExamples.push({
+        home: fixture.homeTeam,
+        away: fixture.awayTeam,
+        reason,
+        league: fixture.league,
+        leagueId: fixture.leagueId,
+        country: fixture.country,
+        kickoffAt: fixture.kickoffAt,
+      });
   };
 
   for (const fixture of today) {
