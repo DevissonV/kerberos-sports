@@ -43,4 +43,40 @@ describe('today funnel', () => {
     expect(result.modelable).toBe(0);
     expect(result.rejectionBreakdown.OBSERVATION_ONLY).toBe(1);
   });
+
+  it('atribuye ALIAS_FAILURE como exclusión real cuando la identidad no resuelve', () => {
+    const result = classifyTodayFixtures(
+      [fixture('alias-fail', '2026-09-17T20:00:00Z')],
+      new Date('2026-09-17T15:00:00Z'),
+      new Set(),
+      () => 'ALIAS_FAILURE',
+    );
+    expect(result.modelable).toBe(0);
+    expect(result.rejectionBreakdown.ALIAS_FAILURE).toBe(1);
+    expect(result.aliasReady).toBe(0);
+  });
+
+  it('cuenta INSUFFICIENT_HISTORY como nota de calidad sin restarlo de modelable', () => {
+    const result = classifyTodayFixtures(
+      [fixture('insufficient', '2026-09-17T20:00:00Z')],
+      new Date('2026-09-17T15:00:00Z'),
+      new Set(),
+      () => 'INSUFFICIENT_HISTORY',
+    );
+    expect(result.modelable).toBe(1);
+    expect(result.rejected).toBe(0);
+    expect(result.insufficientHistory).toBe(1);
+    expect(result.rejectionBreakdown.INSUFFICIENT_HISTORY).toBe(0);
+  });
+
+  it('atribuye OTHER cuando el fixture está en horizonte pero no llegó a modelarse', () => {
+    const result = classifyTodayFixtures(
+      [fixture('ready-idle', '2026-09-17T20:00:00Z')],
+      new Date('2026-09-17T15:00:00Z'),
+      new Set(),
+      () => 'READY',
+    );
+    expect(result.rejectionBreakdown.OTHER).toBe(1);
+    expect(result.withinModelHorizon).toBe(1);
+  });
 });

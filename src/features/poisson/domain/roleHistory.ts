@@ -59,3 +59,31 @@ export function aggregateAwayRoleStats(awayMatches: readonly HistoricalMatch[]):
     { matches: 0, goalsForSum: 0, goalsAgainstSum: 0 },
   );
 }
+
+export type FixtureHistoryStatus = 'READY' | 'ALIAS_FAILURE' | 'INSUFFICIENT_HISTORY';
+
+/**
+ * Clasifica la disponibilidad histórica de los dos equipos de un fixture sobre el
+ * histórico YA filtrado a la ventana causal de SU liga (sin cruzar datasets):
+ * `ALIAS_FAILURE` si un equipo no existe con nombre canónico en el histórico
+ * (identidad sin resolver; el mapeo del proveedor nunca es fuzzy), e
+ * `INSUFFICIENT_HISTORY` si existe pero su papel específico (local/visitante) no
+ * alcanza el mínimo del modelo. Solo clasificación observacional: no altera la
+ * matemática de Poisson ni sus mínimos.
+ */
+export function fixtureHistoryStatus(
+  matchesInWindow: readonly HistoricalMatch[],
+  home: string,
+  away: string,
+): FixtureHistoryStatus {
+  const appearances = (team: string): number =>
+    matchesInWindow.filter((match) => match.homeTeam === team || match.awayTeam === team).length;
+  if (appearances(home) === 0 || appearances(away) === 0) return 'ALIAS_FAILURE';
+  if (
+    homeRoleHistory(matchesInWindow, home).length < MIN_TEAM_ROLE_MATCHES ||
+    awayRoleHistory(matchesInWindow, away).length < MIN_TEAM_ROLE_MATCHES
+  ) {
+    return 'INSUFFICIENT_HISTORY';
+  }
+  return 'READY';
+}

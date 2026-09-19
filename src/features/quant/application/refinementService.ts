@@ -24,6 +24,9 @@ import {
   selectTodayFirst,
 } from '../../scanning/domain/todayFirst';
 import type { Fixture } from '../../scanning/domain/concepts';
+import type { HistoricalMatch } from '../../poisson/domain/concepts';
+import { filterHistoricalWindow } from '../../poisson/domain/historicalWindow';
+import { fixtureHistoryStatus, type FixtureHistoryStatus } from '../../poisson/domain/roleHistory';
 import { classifyTodayFixtures } from '../../scanning/domain/todayFunnel';
 import {
   auditEuropaFixture,
@@ -120,6 +123,7 @@ export interface RefinementTickSummary {
   todayModelable?: number;
   todayHistoryReady?: number;
   todayAliasReady?: number;
+  todayInsufficientHistory?: number;
   todayWithinModelHorizon?: number;
   todayStarted?: number;
   todayExpired?: number;
@@ -148,6 +152,9 @@ export function refinementTickId(now: Date): string {
   bucket.setUTCMinutes(bucket.getUTCMinutes() - (bucket.getUTCMinutes() % 30), 0, 0);
   return bucket.toISOString().slice(0, 16);
 }
+
+/** Presupuesto de detección por tick: fixtures crudos que el precheck analiza. */
+export const PRECHECK_FIXTURE_LIMIT = 60;
 
 export function renderRefinementTick(summary: RefinementTickSummary): string {
   return [
@@ -185,6 +192,7 @@ export function renderRefinementTick(summary: RefinementTickSummary): string {
     `TODAY_MODELABLES=${summary.todayModelable ?? 0}`,
     `TODAY_HISTORY_READY=${summary.todayHistoryReady ?? 0}`,
     `TODAY_ALIAS_READY=${summary.todayAliasReady ?? 0}`,
+    `TODAY_INSUFFICIENT_HISTORY=${summary.todayInsufficientHistory ?? 0}`,
     `TODAY_WITHIN_MODEL_HORIZON=${summary.todayWithinModelHorizon ?? 0}`,
     `TODAY_MODEL_ELIGIBLE=${summary.todayModelEligible ?? 0}`,
     `TODAY_MODELLED=${summary.todayModelled ?? 0}`,
@@ -366,7 +374,7 @@ export class RefinementService {
     }
 
     try {
-      const precheck = await this.scanning.precheck(20, now);
+      const precheck = await this.scanning.precheck(PRECHECK_FIXTURE_LIMIT, now);
       tick.rawFixtures = precheck.rawFixtures;
       tick.supportedLeagueFixtures =
         precheck.supportedLeagueFixtures ??
@@ -380,9 +388,17 @@ export class RefinementService {
       tick.observationFixtures = precheck.observationFixtures;
       tick.decisionWindowFixtures = precheck.decisionWindowFixtures.length;
       tick.preAnalysisEligible = precheck.preAnalysisFixtures?.length ?? 0;
+      const historyByFixture = new Map<string, readonly HistoricalMatch[]>();
+      const historyForFixture = (fixture: Fixture): readonly HistoricalMatch[] => {
+        const cached = historyByFixture.get(fixture.id);
+        if (cached !== undefined) return cached;
+        const matches = historicalMatchesForLeague(fixture.leagueId ?? -1, fixture.country ?? '');
+        historyByFixture.set(fixture.id, matches);
+        return matches;
+      };
       const modelAnalysis = runModelAnalysis(
         (precheck.preAnalysisFixtures ?? []).map((entry) => entry.fixture),
-        (fixture) => historicalMatchesForLeague(fixture.leagueId ?? -1, fixture.country ?? ''),
+        historyForFixture,
         now,
       );
       const domesticSources = LEAGUE_UNIVERSE.filter(
@@ -473,16 +489,28 @@ export class RefinementService {
       const todayPreanalysis = allAnalyses.filter(
         (analysis) => calendarDateInBogota(analysis.fixture.kickoffAt) === todayDate,
       );
+      const historyStatusById = new Map<string, FixtureHistoryStatus>(
+        (precheck.preAnalysisFixtures ?? []).map((entry) => [
+          entry.fixture.id,
+          fixtureHistoryStatus(
+            filterHistoricalWindow(historyForFixture(entry.fixture), now),
+            entry.fixture.homeTeam,
+            entry.fixture.awayTeam,
+          ),
+        ]),
+      );
       const todayFunnel = classifyTodayFixtures(
         precheck.rawFixtureList ?? [],
         now,
         new Set(todayPreanalysis.map((analysis) => analysis.fixture.id)),
+        (fixture) => historyStatusById.get(fixture.id) ?? 'READY',
       );
       tick.todayRawFixtures = todayFunnel.raw;
       tick.todayModelEnabled = todayFunnel.modelEnabled;
       tick.todayModelable = todayFunnel.modelable;
       tick.todayHistoryReady = todayFunnel.historyReady;
       tick.todayAliasReady = todayFunnel.aliasReady;
+      tick.todayInsufficientHistory = todayFunnel.insufficientHistory;
       tick.todayWithinModelHorizon = todayFunnel.withinModelHorizon;
       tick.todayStarted = todayFunnel.started;
       tick.todayExpired = todayFunnel.expired;

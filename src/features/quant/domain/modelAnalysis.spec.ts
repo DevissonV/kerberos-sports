@@ -27,14 +27,45 @@ describe('runModelAnalysis', () => {
   it('modela T-24 sin solicitar odds y conserva probabilidades Poisson', () => {
     const output = runModelAnalysis([fixture], () => history, now);
     expect(output.insufficientData).toBe(0);
+    expect(output.aliasFailures).toBe(0);
     expect(output.analyses).toHaveLength(1);
     expect(output.analyses[0]?.snapshotType).toBe('PREANALYSIS');
     expect(output.analyses[0]?.model.pOver).toBeGreaterThan(0);
     expect(output.analyses[0]?.decision).toBe('PREANALYSIS');
   });
 
+  it('no requiere odds en ninguna parte de su contrato', () => {
+    const output = runModelAnalysis([fixture], () => history, now);
+    expect(output.analyses[0]).not.toHaveProperty('pair');
+    expect(output.analyses[0]).not.toHaveProperty('side');
+  });
+
   it('marca histórico insuficiente sin inventar una decisión', () => {
     const output = runModelAnalysis([fixture], () => [], now);
-    expect(output).toEqual({ analyses: [], insufficientData: 1 });
+    // El equipo no existe en el histórico con nombre canónico: ALIAS_FAILURE.
+    expect(output).toEqual({ analyses: [], insufficientData: 0, aliasFailures: 1 });
+  });
+
+  it('excluye ALIAS_FAILURE antes de modelar y lo atribuye aparte de INSUFFICIENT_DATA', () => {
+    const unknownTeam: Fixture = { ...fixture, id: 'alias-fail', awayTeam: 'Equipo Sin Historial' };
+    const output = runModelAnalysis([unknownTeam], () => history, now);
+    expect(output.analyses).toHaveLength(0);
+    expect(output.aliasFailures).toBe(1);
+    expect(output.insufficientData).toBe(0);
+  });
+
+  it('modela con shrinkage un equipo presente pero con rol por debajo del mínimo', () => {
+    const scarce: HistoricalMatch[] = [
+      ...history.slice(0, 6),
+      ...Array.from({ length: 200 }, (_, i) => ({
+        ...history[i]!,
+        homeTeam: 'Filler',
+        awayTeam: 'Filler2',
+      })),
+    ];
+    const output = runModelAnalysis([fixture], () => scarce, now);
+    expect(output.aliasFailures).toBe(0);
+    expect(output.analyses).toHaveLength(1);
+    expect(output.analyses[0]?.model.dataQuality).toContain('HOME_INSUFFICIENT_ROLE_HISTORY');
   });
 });

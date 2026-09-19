@@ -46,6 +46,60 @@ function setup(status = 'FT', goals: [number, number] = [3, 0]) {
 }
 
 describe('PredictionLedgerService', () => {
+  it('persiste PREANALYSIS sin odds y es idempotente entre heartbeats', () => {
+    const { service, store } = setup();
+    const snapshotAt = new Date('2026-09-18T05:00:00Z');
+    const model = {
+      modelVersion: 'poisson-v1' as const,
+      snapshotAt,
+      fixtureId: '42',
+      league: 'Premier League',
+      home: 'H',
+      away: 'A',
+      leagueHomeGoalsMean: 1.4,
+      leagueAwayGoalsMean: 1.1,
+      homeRoleMatches: 20,
+      awayRoleMatches: 20,
+      lambdaHome: 1.5,
+      lambdaAway: 1.1,
+      lambdaTotal: 2.6,
+      pOver: 0.58,
+      pUnder: 0.42,
+      dataQuality: [],
+    };
+    const analysis = {
+      fixture: {
+        id: '42',
+        sport: 'FOOTBALL' as const,
+        league: 'Premier League',
+        leagueId: 39,
+        country: 'England',
+        homeTeam: 'H',
+        awayTeam: 'A',
+        kickoffAt: new Date('2026-09-18T20:00:00Z'),
+        status: 'NS' as const,
+      },
+      snapshotAt,
+      snapshotType: 'PREANALYSIS' as const,
+      model,
+      decision: 'PREANALYSIS' as const,
+    };
+    const first = service.recordPreanalysis(analysis);
+    expect(first).toMatchObject({
+      fixtureId: '42',
+      predictionStage: 'PREANALYSIS',
+      betAuthorized: false,
+    });
+    expect(first.oddsAtPrediction).toBeUndefined();
+    const repeat = service.recordPreanalysis({
+      ...analysis,
+      snapshotAt: new Date('2026-09-18T06:00:00Z'),
+    });
+    expect(repeat.predictionId).toBe(first.predictionId);
+    const rowsForFixture = store.list().filter((entry) => entry.fixtureId === '42');
+    expect(rowsForFixture).toHaveLength(1);
+  });
+
   it('liquida marcador final de forma idempotente', async () => {
     const { service, store, resultMock } = setup();
     await expect(service.settlePending(new Date('2026-09-18T15:00:00Z'))).resolves.toMatchObject({

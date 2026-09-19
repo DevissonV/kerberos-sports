@@ -1,6 +1,7 @@
 import type { Fixture } from './concepts';
 import { isModelEnabled, resolveLeagueStatus } from './leagueUniverse';
 import { calendarDateInBogota } from './todayFirst';
+import type { FixtureHistoryStatus } from '../../poisson/domain/roleHistory';
 
 export const MODEL_HORIZON_HOURS = 24;
 
@@ -29,6 +30,8 @@ export interface TodayFunnel {
   expired: number;
   rejected: number;
   modelable: number;
+  /** Nota de calidad (no exclusión): equipos con rol local/visitante bajo el mínimo. */
+  insufficientHistory: number;
   rejectionBreakdown: Record<TodayExclusionReason, number>;
   rejectionExamples: readonly { home: string; away: string; reason: TodayExclusionReason }[];
 }
@@ -49,6 +52,7 @@ export function classifyTodayFixtures(
   fixtures: readonly Fixture[],
   now: Date,
   modelledFixtureIds: ReadonlySet<string> = new Set(),
+  historyStatus?: (fixture: Fixture) => FixtureHistoryStatus,
 ): TodayFunnel {
   const today = fixtures.filter(
     (fixture) => calendarDateInBogota(fixture.kickoffAt) === calendarDateInBogota(now),
@@ -59,6 +63,7 @@ export function classifyTodayFixtures(
   let withinModelHorizon = 0;
   let historyReady = 0;
   let aliasReady = 0;
+  let insufficientHistory = 0;
   let marketWindow = 0;
   const rejectionExamples: { home: string; away: string; reason: TodayExclusionReason }[] = [];
 
@@ -92,10 +97,21 @@ export function classifyTodayFixtures(
       continue;
     }
     withinModelHorizon += 1;
+    const status = historyStatus?.(fixture) ?? 'READY';
+    if (status === 'ALIAS_FAILURE') {
+      record(fixture, 'ALIAS_FAILURE');
+      continue;
+    }
     historyReady += 1;
     aliasReady += 1;
-    if (modelledFixtureIds.has(fixture.id)) marketWindow += 1;
-    else record(fixture, 'INSUFFICIENT_HISTORY');
+    if (status === 'INSUFFICIENT_HISTORY') {
+      insufficientHistory += 1;
+      if (modelledFixtureIds.has(fixture.id)) marketWindow += 1;
+    } else if (modelledFixtureIds.has(fixture.id)) {
+      marketWindow += 1;
+    } else {
+      record(fixture, 'OTHER');
+    }
   }
 
   const modelled = today.filter((fixture) => modelledFixtureIds.has(fixture.id)).length;
@@ -114,6 +130,7 @@ export function classifyTodayFixtures(
     expired: reasons.PREMATCH_WINDOW_CLOSED,
     rejected,
     modelable: today.length - rejected,
+    insufficientHistory,
     rejectionBreakdown: reasons,
     rejectionExamples,
   };

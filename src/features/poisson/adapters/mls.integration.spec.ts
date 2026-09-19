@@ -17,16 +17,15 @@ describe('MLS MODEL_ENABLED integration', () => {
   });
 
   it('todos los equipos de MLS resuelven aliases deterministas', () => {
-    const teams = [
-      'Atlanta United',
-      'Chicago Fire',
-      'New York City FC',
-      'Seattle Sounders',
-      'San Diego FC',
-    ];
-    for (const team of teams) {
-      const resolved = resolveCanonicalTeamNameForDataset('mls', team);
-      expect(resolved).toBe(team);
+    const expected = new Map<string, string>([
+      ['Atlanta United', 'Atlanta United FC'],
+      ['Chicago Fire', 'Chicago Fire'],
+      ['New York City FC', 'New York City FC'],
+      ['Seattle Sounders', 'Seattle Sounders'],
+      ['San Diego FC', 'San Diego'],
+    ]);
+    for (const [source, canonical] of expected) {
+      expect(resolveCanonicalTeamNameForDataset('mls', source)).toBe(canonical);
     }
   });
 
@@ -36,7 +35,7 @@ describe('MLS MODEL_ENABLED integration', () => {
       country: 'USA',
       league: 'Major League Soccer',
       homeTeam: 'Seattle Sounders',
-      awayTeam: 'LA Galaxy',
+      awayTeam: 'Los Angeles Galaxy',
     };
     expect(isModelEnabled(fixture)).toBe(true);
   });
