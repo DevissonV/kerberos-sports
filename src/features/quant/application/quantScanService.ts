@@ -33,6 +33,7 @@ import { SqliteModelAnalysisStore } from '../adapters/sqliteModelAnalysisStore';
 import { AnalystService } from '../../llm-analyst/application/analystService';
 import type { AnalystRunResult } from '../../llm-analyst/application/analystService';
 import { config } from '../../../shared/config/configuration';
+import { PredictionLedgerService } from '../../prediction-ledger/application/predictionLedgerService';
 
 export interface QuantScanSummary {
   scan: ScanOutput;
@@ -55,6 +56,7 @@ export class QuantScanService {
     private readonly productionRisk: ProductionRiskService,
     private readonly manualLedger: ManualLedgerService,
     private readonly analyst: AnalystService,
+    private readonly predictionLedger: PredictionLedgerService,
     @Optional()
     @Inject(MODEL_ANALYSIS_STORE)
     private readonly modelAnalysisStore: ModelAnalysisStore = new SqliteModelAnalysisStore(
@@ -137,6 +139,7 @@ export class QuantScanService {
     let analysisMessagesSent = 0;
     for (const analysis of result.analyses) {
       this.modelAnalysisStore.saveMarketAnalysis(analysis);
+      this.predictionLedger.recordMarketAnalysis(analysis);
       logger.info('MARKET_ANALYSIS_STARTED', {
         fixtureId: analysis.fixture.id,
         fixture: `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
@@ -150,7 +153,20 @@ export class QuantScanService {
           ? this.actionableMessage(prepared.bet, now)
           : formatQuantAnalysisMessage(analysis, contextByFixture.get(analysis.fixture.id));
       let telegramSent = false;
-      if (message !== null) {
+      const material = {
+        selection: analysis.side?.selection ?? null,
+        probabilityBand: Math.round((analysis.side?.modelProbability ?? 0) * 1_000),
+        odds: analysis.side?.offeredOdds ?? null,
+        reason: analysis.reason ?? null,
+      };
+      if (
+        message !== null &&
+        this.predictionLedger.shouldSendEvent(
+          `market-decision:${analysis.fixture.id}:${analysis.decision}`,
+          material,
+          now,
+        )
+      ) {
         try {
           await this.notifications.send(message);
           analysisMessagesSent += 1;

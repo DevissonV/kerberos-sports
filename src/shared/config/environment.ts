@@ -37,6 +37,10 @@ export const environmentSchema = z
     PAPER_ONLY: booleanFromString,
     REFINEMENT_MODE: refinementBoolean,
     MAX_ODDSPAPI_FULL_SCANS_PER_DAY: z.coerce.number().int().positive().default(2),
+    DAILY_REPORT_TIME_BOGOTA: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .default('22:30'),
     PRODUCTION_RISK_BASE_STAKE_COP: z.coerce.number().int().positive().default(10_000),
     PRODUCTION_RISK_ELEVATED_STAKE_COP: z.coerce.number().int().positive().default(15_000),
     PRODUCTION_RISK_HIGH_STAKE_COP: z.coerce.number().int().positive().default(20_000),

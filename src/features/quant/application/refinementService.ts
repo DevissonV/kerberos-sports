@@ -37,6 +37,7 @@ import type {
   RefinementHeartbeatApprovedBet,
   RefinementHeartbeatNoBetEntry,
 } from '../../notifications/domain/refinementHeartbeat';
+import { PredictionLedgerService } from '../../prediction-ledger/application/predictionLedgerService';
 
 export interface RefinementLeagueSummary {
   leagueId: number;
@@ -267,10 +268,13 @@ export class RefinementService {
     private readonly modelAnalysisStore: ModelAnalysisStore = new SqliteModelAnalysisStore(
       ':memory:',
     ),
+    @Optional()
+    private readonly predictionLedger?: PredictionLedgerService,
   ) {}
 
   async runTick(
-    config: Pick<AppConfig, 'refinementMode' | 'maxOddsPapiFullScansPerDay'>,
+    config: Pick<AppConfig, 'refinementMode' | 'maxOddsPapiFullScansPerDay'> &
+      Partial<Pick<AppConfig, 'dailyReportTimeBogota'>>,
     now = new Date(),
   ): Promise<RefinementTickSummary> {
     const tickId = refinementTickId(now);
@@ -331,6 +335,7 @@ export class RefinementService {
 
     this.refinementStore.increment(day, { ticks: 1 });
     let radar: {
+      fixtureId?: string;
       home: string;
       away: string;
       selection: string;
@@ -347,6 +352,15 @@ export class RefinementService {
       const settlement = await this.settlement.settleOpenBets();
       tick.settlements = settlement.settled;
       tick.telegramSettlementMessages = settlement.telegramSent;
+    } catch (cause) {
+      markError(tick, cause, 'PARTIAL');
+    }
+    try {
+      const predictionSettlement = await this.predictionLedger?.settlePending(now);
+      if (predictionSettlement !== undefined) {
+        tick.settlements += predictionSettlement.settled;
+        if (predictionSettlement.errors > 0) tick.errors += predictionSettlement.errors;
+      }
     } catch (cause) {
       markError(tick, cause, 'PARTIAL');
     }
@@ -399,6 +413,10 @@ export class RefinementService {
         this.modelAnalysisStore.saveModelAnalysis(analysis);
       for (const analysis of experimentalAnalyses)
         this.modelAnalysisStore.saveModelAnalysis(analysis);
+      for (const analysis of modelAnalysis.analyses)
+        this.predictionLedger?.recordPreanalysis(analysis);
+      for (const analysis of experimentalAnalyses)
+        this.predictionLedger?.recordPreanalysis(analysis);
       const allAnalyses = [...modelAnalysis.analyses, ...experimentalAnalyses];
       tick.preAnalysisCount = allAnalyses.length;
       tick.modelledFixtures = tick.preAnalysisCount;
@@ -608,13 +626,15 @@ export class RefinementService {
           if (analyzedIds.has(entry.fixture.id)) continue;
           const model = modelByFixture.get(entry.fixture.id)?.model;
           if (model === undefined) continue;
-          this.modelAnalysisStore.saveTerminalMarketDecision({
+          const terminalDecision = {
             fixture: entry.fixture,
             snapshotAt: now,
             model,
-            decision: 'NO_ODDS',
+            decision: 'NO_ODDS' as const,
             reason: 'NO_BOOKMAKER',
-          });
+          };
+          this.modelAnalysisStore.saveTerminalMarketDecision(terminalDecision);
+          this.predictionLedger?.recordTerminalMarketDecision(terminalDecision);
         }
         for (const entry of pending) {
           const analysis = result.result.analyses?.find(
@@ -724,57 +744,80 @@ export class RefinementService {
       errors: tick.errors,
     });
 
-    if (config.refinementMode && this.refinementStore.claimHeartbeat(tickId)) {
+    if (config.refinementMode) {
       try {
-        await this.notifications.send(
-          formatRefinementHeartbeat({
-            now,
-            byLeague: tick.byLeague.map((entry) => ({
-              leagueId: entry.leagueId,
-              status: entry.status,
-              fixturesDetected: entry.fixturesDetected,
-              modelled: entry.modelled,
-            })),
-            counters: countersForHeartbeat(tick),
-            openBets: tick.openPaperBets,
-            fixturesModelled: tick.modelledFixtures,
-            bets: tick.paperBetsCreated,
-            noBets: tick.noBets,
-            insufficientData: tick.insufficientData,
-            oddsUnavailable: tick.oddsUnavailable,
-            budgetBlocked: tick.budgetBlocked,
-            budgetProvider: tick.budgetProvider,
-            budgetResetAt: tick.budgetResetAt,
-            error: tick.error,
-            preAnalysisCount: tick.preAnalysisCount,
-            marketAnalyzed: tick.marketAnalyzed,
-            noOdds: tick.noOdds,
-            radar: radar.map((entry) => ({ ...entry, experimental: entry.experimental })),
-            closedFollowups: this.closedFollowups(now, radar),
-            approvedBets,
-            noBetEntries,
-            todayRawFixtures: tick.todayRawFixtures,
-            todayModelEnabled: tick.todayModelEnabled,
-            todayModelable: tick.todayModelable,
-            todayHistoryReady: tick.todayHistoryReady,
-            todayAliasReady: tick.todayAliasReady,
-            todayWithinModelHorizon: tick.todayWithinModelHorizon,
-            todayPreanalysis: tick.todayPreanalysis,
-            todayStarted: tick.todayStarted,
-            todayExpired: tick.todayExpired,
-            todayRejected: tick.todayRejected,
-            todayRejectionExamples: tick.todayRejectionExamples,
-            upcomingPreanalysis: tick.upcomingPreanalysis,
-            radarTodayShown: tick.radarTodayShown,
-            radarUpcomingShown: tick.radarUpcomingShown,
-            nextT6Fixture: tick.nextT6Fixture,
-            nextT6At: tick.nextT6At === undefined ? undefined : new Date(tick.nextT6At),
-          }),
-        );
-        tick.telegramHeartbeatSent = true;
+        const heartbeat = formatRefinementHeartbeat({
+          now,
+          byLeague: tick.byLeague.map((entry) => ({
+            leagueId: entry.leagueId,
+            status: entry.status,
+            fixturesDetected: entry.fixturesDetected,
+            modelled: entry.modelled,
+          })),
+          counters: countersForHeartbeat(tick),
+          openBets: tick.openPaperBets,
+          fixturesModelled: tick.modelledFixtures,
+          bets: tick.paperBetsCreated,
+          noBets: tick.noBets,
+          insufficientData: tick.insufficientData,
+          oddsUnavailable: tick.oddsUnavailable,
+          budgetBlocked: tick.budgetBlocked,
+          budgetProvider: tick.budgetProvider,
+          budgetResetAt: tick.budgetResetAt,
+          error: tick.error,
+          preAnalysisCount: tick.preAnalysisCount,
+          marketAnalyzed: tick.marketAnalyzed,
+          noOdds: tick.noOdds,
+          radar: radar.map((entry) => ({ ...entry, experimental: entry.experimental })),
+          closedFollowups: this.closedFollowups(now, radar),
+          approvedBets,
+          noBetEntries,
+          todayRawFixtures: tick.todayRawFixtures,
+          todayModelEnabled: tick.todayModelEnabled,
+          todayModelable: tick.todayModelable,
+          todayHistoryReady: tick.todayHistoryReady,
+          todayAliasReady: tick.todayAliasReady,
+          todayWithinModelHorizon: tick.todayWithinModelHorizon,
+          todayPreanalysis: tick.todayPreanalysis,
+          todayStarted: tick.todayStarted,
+          todayExpired: tick.todayExpired,
+          todayRejected: tick.todayRejected,
+          todayRejectionExamples: tick.todayRejectionExamples,
+          upcomingPreanalysis: tick.upcomingPreanalysis,
+          radarTodayShown: tick.radarTodayShown,
+          radarUpcomingShown: tick.radarUpcomingShown,
+          nextT6Fixture: tick.nextT6Fixture,
+          nextT6At: tick.nextT6At === undefined ? undefined : new Date(tick.nextT6At),
+        });
+        const material = {
+          radar: radar.map((entry) => ({
+            fixtureId: entry.fixtureId,
+            selection: entry.selection,
+            probabilityBand: Math.round(entry.probability * 1_000),
+          })),
+          decisions: { bets: tick.paperBetsCreated, noBets: tick.noBets, noOdds: tick.noOdds },
+          closed: this.closedFollowups(now, radar).map((entry) => `${entry.home}|${entry.away}`),
+          status: tick.status,
+        };
+        const shouldSend =
+          this.predictionLedger?.shouldSendEvent('operational-heartbeat', material, now) ??
+          this.refinementStore.claimHeartbeat(tickId);
+        if (shouldSend) {
+          await this.notifications.send(heartbeat);
+          tick.telegramHeartbeatSent = true;
+        }
       } catch (cause) {
         markError(tick, cause, 'PARTIAL');
       }
+    }
+
+    try {
+      await this.predictionLedger?.sendDailyReportIfDue(
+        now,
+        config.dailyReportTimeBogota ?? '22:30',
+      );
+    } catch (cause) {
+      markError(tick, cause, 'PARTIAL');
     }
 
     process.stdout.write(`${renderRefinementTick(tick)}\n`);

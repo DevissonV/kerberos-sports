@@ -6,6 +6,11 @@ import { SqlitePaperBetStore } from '../src/features/paper-betting/adapters/sqli
 import { ScanningService } from '../src/features/scanning/application/scanningService';
 import { NOTIFICATION_PORT } from '../src/features/notifications/ports/notificationPort';
 import type { NotificationPort } from '../src/features/notifications/ports/notificationPort';
+import { LunaShadowService } from '../src/features/luna/application/lunaShadowService';
+import { ProductionRiskService } from '../src/features/production-risk/application/productionRiskService';
+import { ManualLedgerService } from '../src/features/manual-ledger/application/manualLedgerService';
+import { AnalystService } from '../src/features/llm-analyst/application/analystService';
+import { PredictionLedgerService } from '../src/features/prediction-ledger/application/predictionLedgerService';
 
 describe('QuantScanService (wiring Nest, sin red)', () => {
   it('resuelve el servicio con los puertos del módulo', async () => {
@@ -21,6 +26,11 @@ describe('QuantScanService (wiring Nest, sin red)', () => {
           provide: NOTIFICATION_PORT,
           useValue: { send: (): Promise<void> => Promise.resolve() } satisfies NotificationPort,
         },
+        { provide: LunaShadowService, useValue: {} },
+        { provide: ProductionRiskService, useValue: {} },
+        { provide: ManualLedgerService, useValue: {} },
+        { provide: AnalystService, useValue: {} },
+        { provide: PredictionLedgerService, useValue: {} },
       ],
       imports: [
         ConfigModule.forRoot({

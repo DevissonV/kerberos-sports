@@ -36,6 +36,8 @@ export interface AppConfig {
   manualLedgerDbPath: string;
   refinementMode: boolean;
   maxOddsPapiFullScansPerDay: number;
+  /** Hora local America/Bogota (HH:mm) para el resumen nocturno. */
+  dailyReportTimeBogota: string;
   productionRisk: {
     baseStakeCop: number;
     elevatedStakeCop: number;
@@ -93,6 +95,7 @@ export function createConfig(): AppConfig {
     manualLedgerDbPath: optionalEnv('MANUAL_LEDGER_DB_PATH') ?? 'data/kerberos-sports-ledger.db',
     refinementMode: process.env.REFINEMENT_MODE === 'true',
     maxOddsPapiFullScansPerDay: Number(process.env.MAX_ODDSPAPI_FULL_SCANS_PER_DAY ?? 2),
+    dailyReportTimeBogota: optionalEnv('DAILY_REPORT_TIME_BOGOTA') ?? '22:30',
     productionRisk: {
       baseStakeCop: Number(process.env.PRODUCTION_RISK_BASE_STAKE_COP ?? 10_000),
       elevatedStakeCop: Number(process.env.PRODUCTION_RISK_ELEVATED_STAKE_COP ?? 15_000),

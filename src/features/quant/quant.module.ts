@@ -27,6 +27,7 @@ import { ManualLedgerModule } from '../manual-ledger/manual-ledger.module';
 import { MODEL_ANALYSIS_STORE } from './ports/modelAnalysisStore';
 import { SqliteModelAnalysisStore } from './adapters/sqliteModelAnalysisStore';
 import { LlmAnalystModule } from '../llm-analyst/llm-analyst.module';
+import { PredictionLedgerModule } from '../prediction-ledger/prediction-ledger.module';
 
 /**
  * Módulo standalone de batch (cli/scan.ts): declara su propio ConfigModule porque no
@@ -48,6 +49,7 @@ import { LlmAnalystModule } from '../llm-analyst/llm-analyst.module';
     ProductionRiskModule,
     ManualLedgerModule,
     LlmAnalystModule,
+    PredictionLedgerModule,
   ],
   providers: [
     QuantScanService,

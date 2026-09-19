@@ -33,6 +33,13 @@ async function main(): Promise<void> {
 
   const app = await NestFactory.createApplicationContext(QuantModule, { logger: false });
   try {
+    logger.info('PREDICTION_LEDGER_ACTIVE', { durablePath: config.paperBetsDbPath });
+    logger.info('TELEGRAM_DEDUPE_ACTIVE', {});
+    logger.info('SETTLEMENT_ACTIVE', {});
+    logger.info('DAILY_REPORT_SCHEDULED', {
+      time: config.dailyReportTimeBogota,
+      timezone: 'America/Bogota',
+    });
     const quantScan = app.get(QuantScanService);
     if (config.refinementMode) {
       const refinement = app.get(RefinementService);

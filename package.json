@@ -18,6 +18,7 @@
     "ledger": "npm run build && node -r dotenv/config dist/cli/manualLedger.js",
     "telegram:smoke": "npm run build && node -r dotenv/config dist/cli/telegramSmoke.js",
     "poisson:smoke": "npm run build && node -r dotenv/config dist/cli/poissonSmoke.js",
+    "daily-report:preview": "npm run build && node -r dotenv/config dist/cli/dailyReportPreview.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"{src,test}/**/*.ts\" \"*.{json,md,yml,yaml}\"",
