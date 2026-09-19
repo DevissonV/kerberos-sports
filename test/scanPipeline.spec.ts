@@ -1,7 +1,13 @@
+jest.mock('@nestjs/common', () => ({
+  Inject: () => () => undefined,
+  Injectable: () => (target: unknown) => target,
+}));
+
 import { decisionAtFromKickoff } from '../src/features/scanning/domain/decisionWindow';
 import { runScan } from '../src/features/scanning/application/scanPipeline';
 import type { Fixture, OddsPair } from '../src/features/scanning/domain/concepts';
 import type { OddsEvent } from '../src/features/scanning/domain/matching';
+import { ScanningService } from '../src/features/scanning/application/scanningService';
 
 const PL_LEAGUE_ID = 39;
 const PL_COUNTRY = 'England';
@@ -59,6 +65,48 @@ const KICKOFF = '2026-09-18T19:00:00Z';
 const NOW_AT_DECISION_WINDOW = decisionAtFromKickoff(new Date(KICKOFF));
 
 describe('scan pipeline con adapters fake', () => {
+  it('REAL_MANUAL no cambia la detección de fixtures con los mismos inputs', async () => {
+    const fixtureProvider = {
+      upcomingFixtures: () =>
+        Promise.resolve([fixture('manual-mode', 'Arsenal', 'Chelsea', KICKOFF)]),
+    };
+    const oddsProvider = {
+      upcomingOddsEvents: () => Promise.resolve([]),
+      overUnderPairs: () => Promise.resolve([]),
+    };
+    const scanning = new ScanningService(fixtureProvider, oddsProvider);
+    const previousMode = process.env.EXECUTION_MODE;
+    const previousKeys = {
+      REAL_BANKROLL_COP: process.env.REAL_BANKROLL_COP,
+      REAL_MAX_STAKE_COP: process.env.REAL_MAX_STAKE_COP,
+      REAL_MAX_DAILY_EXPOSURE_COP: process.env.REAL_MAX_DAILY_EXPOSURE_COP,
+      REAL_MAX_DAILY_LOSS_COP: process.env.REAL_MAX_DAILY_LOSS_COP,
+      REAL_MAX_OPEN_BETS: process.env.REAL_MAX_OPEN_BETS,
+    };
+    try {
+      const counts: number[] = [];
+      for (const mode of ['PAPER', 'REAL_MANUAL'] as const) {
+        process.env.EXECUTION_MODE = mode;
+        if (mode === 'REAL_MANUAL') {
+          process.env.REAL_BANKROLL_COP = '100000';
+          process.env.REAL_MAX_STAKE_COP = '10000';
+          process.env.REAL_MAX_DAILY_EXPOSURE_COP = '30000';
+          process.env.REAL_MAX_DAILY_LOSS_COP = '30000';
+          process.env.REAL_MAX_OPEN_BETS = '2';
+        }
+        counts.push((await scanning.precheck(20, new Date('2026-09-18T12:00:00Z'))).rawFixtures);
+      }
+      expect(counts).toEqual([1, 1]);
+    } finally {
+      if (previousMode === undefined) delete process.env.EXECUTION_MODE;
+      else process.env.EXECUTION_MODE = previousMode;
+      for (const [key, value] of Object.entries(previousKeys)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
   it('produce candidatos normalizados con fair probabilities y decision NO_BET_PIPELINE_ONLY', async () => {
     const fetchFixtures = (): Promise<Fixture[]> =>
       Promise.resolve([

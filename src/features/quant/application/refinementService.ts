@@ -396,6 +396,23 @@ export class RefinementService {
       tick.observationFixtures = precheck.observationFixtures;
       tick.decisionWindowFixtures = precheck.decisionWindowFixtures.length;
       tick.preAnalysisEligible = precheck.preAnalysisFixtures?.length ?? 0;
+      // Conserva el conteo de detección aunque una etapa posterior falle. Antes
+      // se construía después del modelado y el heartbeat podía mostrar cero
+      // fixtures detectados pese a que el provider/precheck sí había respondido.
+      tick.byLeague = precheck.byLeague.map((entry) => ({
+        leagueId: entry.leagueId,
+        league: entry.canonicalName,
+        status: entry.status,
+        fixturesDetected: entry.fixturesDetected,
+        modelEligible: entry.status === 'MODEL_ENABLED' ? entry.fixturesDetected : 0,
+        inDecisionWindow: precheck.decisionWindowFixtures.filter(
+          (candidate) => candidate.fixture.leagueId === entry.leagueId,
+        ).length,
+        modelled: 0,
+        oddsRequested: 0,
+        quantCandidates: 0,
+        paperBets: 0,
+      }));
       const historyByFixture = new Map<string, readonly HistoricalMatch[]>();
       const historyForFixture = (fixture: Fixture): readonly HistoricalMatch[] => {
         const cached = historyByFixture.get(fixture.id);
@@ -542,20 +559,10 @@ export class RefinementService {
       tick.upcomingModelled = tick.upcomingPreanalysis;
       tick.todayExclusions = todayFunnel.rejectionBreakdown;
       tick.outsideDecisionWindow = precheck.eligibleFixtures - tick.decisionWindowFixtures;
-      tick.byLeague = precheck.byLeague.map((entry) => ({
-        leagueId: entry.leagueId,
-        league: entry.canonicalName,
-        status: entry.status,
-        fixturesDetected: entry.fixturesDetected,
-        modelEligible: entry.status === 'MODEL_ENABLED' ? entry.fixturesDetected : 0,
-        inDecisionWindow: precheck.decisionWindowFixtures.filter(
-          (candidate) => candidate.fixture.leagueId === entry.leagueId,
-        ).length,
+      tick.byLeague = tick.byLeague.map((entry) => ({
+        ...entry,
         modelled: allAnalyses.filter((analysis) => analysis.fixture.leagueId === entry.leagueId)
           .length,
-        oddsRequested: 0,
-        quantCandidates: 0,
-        paperBets: 0,
       }));
       const daily = this.refinementStore.dailyCounters(day);
       const budgetGuard = daily.fullOddsScans >= config.maxOddsPapiFullScansPerDay;

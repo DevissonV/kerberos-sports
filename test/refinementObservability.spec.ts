@@ -244,6 +244,39 @@ describe('observabilidad de REFINEMENT_MODE', () => {
     expect(second.telegramHeartbeatSent).toBe(false);
   });
 
+  it('conserva fixtures detectados si falla una etapa posterior al precheck', async () => {
+    const { service } = makeDeps({
+      scanning: {
+        precheck: () =>
+          Promise.resolve({
+            rawFixtures: 2,
+            supportedLeagueFixtures: 2,
+            eligibleFixtures: 2,
+            observationFixtures: 0,
+            fixtures: [],
+            preAnalysisFixtures: [],
+            experimentalPreAnalysisFixtures: [],
+            decisionWindowFixtures: [],
+            byLeague: [
+              {
+                leagueId: 39,
+                canonicalName: 'Premier League',
+                status: 'MODEL_ENABLED',
+                fixturesDetected: 2,
+              },
+            ],
+          }),
+      },
+    });
+    const summary = await service.runTick(
+      { refinementMode: true, maxOddsPapiFullScansPerDay: 2 },
+      NOW,
+    );
+
+    expect(summary.status).toBe('OK');
+    expect(summary.byLeague[0]).toMatchObject({ fixturesDetected: 2 });
+  });
+
   it('expone settlements y mensajes de settlement medidos por el servicio', async () => {
     const { service } = makeDeps({
       settlement: {
