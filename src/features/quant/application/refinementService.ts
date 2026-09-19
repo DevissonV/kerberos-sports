@@ -921,6 +921,7 @@ export class RefinementService {
           leagueId: entry.fixture.leagueId,
           country: entry.fixture.country,
           selection: market.title,
+          marketEmoji: market.emoji,
           probability: Math.max(entry.model.pOver, entry.model.pUnder),
           kickoffAt: entry.fixture.kickoffAt,
           reason: 'Partido iniciado / ventana prepartido cerrada',

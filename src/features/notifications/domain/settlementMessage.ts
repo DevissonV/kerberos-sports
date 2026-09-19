@@ -24,7 +24,7 @@ export function formatSettlementMessage(bet: PaperBet, bankroll: number): string
       ? `Final: ${bet.result && /^\d+-\d+$/.test(bet.result) ? bet.result : `${bet.finalHomeGoals}-${bet.finalAwayGoals}`}`
       : `Final: ${betResult}`;
   return [
-    '🏁 RESULTADO FINAL',
+    '🏁 RESULTADO FINAL —',
     `${status}`,
     '',
     ...formatFixtureIdentity({
@@ -37,6 +37,7 @@ export function formatSettlementMessage(bet: PaperBet, bankroll: number): string
     finalLine,
     '',
     `🎯 Mercado: ${market.title}`,
+    `🧠 Probabilidad Kerberos: ${(bet.modelProbability * 100).toFixed(1)}%`,
     `💵 Stake real: ${cop(bet.stake)}`,
     `💰 Cuota real ejecutada: ${bet.placedOdds.toFixed(2)}`,
     `Retorno: ${cop(grossReturn)}`,
