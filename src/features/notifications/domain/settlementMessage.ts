@@ -1,5 +1,6 @@
 import type { PaperBet } from '../../paper-betting/domain/concepts';
 import { marketLanguage } from './marketLanguage';
+import { formatKickoffBogota } from './formatKickoff';
 
 function cop(value: number): string {
   return `${Math.round(value).toLocaleString('es-CO')} COP`;
@@ -16,7 +17,9 @@ export function formatSettlementMessage(bet: PaperBet, bankroll: number): string
   return [
     '⚽ KERBEROS SPORTS — RESULTADO',
     '',
+    bet.league,
     `${bet.homeTeam} vs ${bet.awayTeam}`,
+    `🗓️ ${formatKickoffBogota(bet.kickoff)}`,
     '',
     status,
     '',

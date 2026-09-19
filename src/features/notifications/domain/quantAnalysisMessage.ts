@@ -1,6 +1,7 @@
 import type { QuantFixtureAnalysis } from '../../quant/application/quantPipeline';
 import { findLeagueDefinition } from '../../scanning/domain/leagueUniverse';
 import { marketLanguage } from './marketLanguage';
+import { formatKickoffBogota } from './formatKickoff';
 import type { AnalystOutput } from '../../llm-analyst/domain/contracts';
 
 function percent(value: number): string {
@@ -15,12 +16,14 @@ export function formatQuantAnalysisMessage(
   if (analysis.side === undefined) return null;
   const league = findLeagueDefinition(analysis.fixture)?.heartbeatLabel ?? analysis.fixture.league;
   const market = marketLanguage(analysis.side.selection);
+  const kickoff = formatKickoffBogota(analysis.fixture.kickoffAt);
   if (analysis.decision === 'BET') {
     return [
       '👀 PREANÁLISIS — NO APOSTAR TODAVÍA',
       '',
       league,
       `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+      `🗓️ ${kickoff}`,
       '',
       market.title,
       market.explanation,
@@ -34,7 +37,9 @@ export function formatQuantAnalysisMessage(
   return [
     '⚪ KERBEROS SPORTS — NO APOSTAR',
     '',
+    league,
     `${analysis.fixture.homeTeam} vs ${analysis.fixture.awayTeam}`,
+    `🗓️ ${kickoff}`,
     '',
     'Mercado analizado:',
     market.title,

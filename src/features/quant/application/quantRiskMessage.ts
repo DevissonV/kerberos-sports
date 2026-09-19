@@ -19,5 +19,6 @@ export function formatQuantPaperMessageFor(
     expectedValue: bet.expectedValue,
     currentRealBankrollCop,
     riskDecision: recommendation.riskDecision,
+    kickoffAt: bet.kickoff,
   });
 }

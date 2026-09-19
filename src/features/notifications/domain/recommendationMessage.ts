@@ -3,6 +3,7 @@
 import type { Recommendation } from '../../recommendations/domain/recommendation';
 import type { ProductionRiskDecision } from '../../production-risk/domain/productionRiskGate';
 import { marketLanguage } from './marketLanguage';
+import { formatKickoffBogota } from './formatKickoff';
 
 const STAKE_TIERS_COP = [10_000, 15_000, 20_000] as const;
 
@@ -24,6 +25,8 @@ export interface RecommendationMessageOptions {
   currentRealBankrollCop: number;
   /** Decisión ya emitida por ProductionRiskService; el formatter no calcula riesgo. */
   riskDecision: ProductionRiskDecision;
+  /** Fecha/hora de kickoff del fixture para presentación (hora Bogotá). */
+  kickoffAt?: Date;
 }
 
 /** Un NO_BET no genera texto de ejecución ni se puede enviar como pick. */
@@ -67,6 +70,7 @@ export function formatRecommendationTelegramMessage(
     '',
     recommendation.league,
     matchName,
+    ...(options.kickoffAt === undefined ? [] : [`🗓️ ${formatKickoffBogota(options.kickoffAt)}`]),
     '',
     '🎯 QUÉ DEBES APOSTAR',
     '',

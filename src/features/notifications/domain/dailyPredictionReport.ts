@@ -5,6 +5,7 @@ import {
   sampleSizeLabel,
 } from '../../prediction-ledger/domain/metrics';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
+import { formatKickoffBogota } from './formatKickoff';
 
 const percent = (value: number): string => `${(value * 100).toFixed(1)}%`;
 
@@ -63,6 +64,7 @@ export function formatDailyPredictionReport(
       lines.push(
         '',
         `${prediction.result === 'HIT' ? '✅' : '❌'} ${prediction.homeTeam} vs ${prediction.awayTeam}`,
+        `${prediction.league} · 🗓️ ${formatKickoffBogota(prediction.kickoffAt)}`,
         prediction.selection === 'OVER_2_5' ? 'MÁS DE 2.5' : 'MENOS DE 2.5',
         `Kerberos: ${percent(prediction.modelProbability)}`,
         `Final: ${prediction.finalScoreHome}-${prediction.finalScoreAway}`,
