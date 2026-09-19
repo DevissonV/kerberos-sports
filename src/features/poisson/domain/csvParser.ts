@@ -2,6 +2,11 @@
  * Parser de histórico football-data.co.uk (`Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR`). Puro:
  * recibe el contenido crudo del CSV como string, sin tocar el filesystem. Ignora filas
  * incompletas y filas con equipos fuera de la tabla de aliases (sin fuzzy matching).
+ *
+ * Convención causal C1: el CSV solo aporta fecha (sin hora de finalización ni de
+ * publicación); la medianoche UTC NO implica que el resultado estuviera disponible a
+ * esa hora. La frontera temporal la aplica `filterHistoricalWindow` con la política
+ * conservadora del mismo día (ver `historicalWindow.ts`).
  */
 
 import type { HistoricalMatch } from './concepts';

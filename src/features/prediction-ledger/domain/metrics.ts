@@ -1,12 +1,17 @@
 import type { Prediction, PredictionSelection } from './prediction';
+import { countsForDomesticPrediction } from './prediction';
 
 export interface PredictionMetrics {
   settledPredictions: number;
   hits: number;
   misses: number;
-  hitRate: number;
-  brierScore: number;
-  logLoss: number;
+  /**
+   * null cuando N=0: sin muestra, hit rate/Brier/log loss NO son estimables y cero no
+   * debe interpretarse como Brier perfecto (KSS-CRITICAL-INTEGRITY-FIX-01 sección 9/H).
+   */
+  hitRate: number | null;
+  brierScore: number | null;
+  logLoss: number | null;
 }
 
 export interface ProbabilityBucket extends PredictionMetrics {
@@ -21,11 +26,22 @@ export function sampleSizeLabel(size: number): string {
   return 'Muestra útil para análisis inicial';
 }
 
-export function calculatePredictionMetrics(predictions: readonly Prediction[]): PredictionMetrics {
-  const settled = predictions.filter(
-    (prediction) =>
-      prediction.isPrimary && (prediction.result === 'HIT' || prediction.result === 'MISS'),
+/**
+ * Población de métricas del prediction ledger (sección 9 de la tarea): solo registros
+ * primary (causal por construcción: el store rehúsa primarias post-kickoff), de
+ * modelMode doméstico válido, no excluidos por diagnóstico y con outcome compatible
+ * (result HIT/MISS). UNKNOWN no es MISS: rows UNKNOWN/VOID/PENDING se excluyen.
+ */
+function performanceEligible(prediction: Prediction): boolean {
+  return (
+    countsForDomesticPrediction(prediction) &&
+    prediction.modelMode !== 'CROSS_LEAGUE_EXPERIMENTAL' &&
+    (prediction.result === 'HIT' || prediction.result === 'MISS')
   );
+}
+
+export function calculatePredictionMetrics(predictions: readonly Prediction[]): PredictionMetrics {
+  const settled = predictions.filter(performanceEligible);
   const hits = settled.filter((prediction) => prediction.result === 'HIT').length;
   const misses = settled.length - hits;
   const brier = settled.reduce((sum, prediction) => {
@@ -41,9 +57,9 @@ export function calculatePredictionMetrics(predictions: readonly Prediction[]): 
     settledPredictions: settled.length,
     hits,
     misses,
-    hitRate: settled.length === 0 ? 0 : hits / settled.length,
-    brierScore: settled.length === 0 ? 0 : brier / settled.length,
-    logLoss: settled.length === 0 ? 0 : logLoss / settled.length,
+    hitRate: settled.length === 0 ? null : hits / settled.length,
+    brierScore: settled.length === 0 ? null : brier / settled.length,
+    logLoss: settled.length === 0 ? null : logLoss / settled.length,
   };
 }
 

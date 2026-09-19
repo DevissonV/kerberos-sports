@@ -3,6 +3,14 @@ import { createHash } from 'node:crypto';
 export type PredictionStage = 'PREANALYSIS' | 'MARKET_ANALYSIS' | 'BET' | 'NO_BET';
 export type PredictionResult = 'PENDING' | 'HIT' | 'MISS' | 'VOID' | 'UNKNOWN';
 export type PredictionSelection = 'OVER_2_5' | 'UNDER_2_5';
+/**
+ * Modo del modelo que produjo la predicción. Solo `DOMESTIC` cuenta para las métricas
+ * del cohort doméstico KSS-V1; cualquier otro modo (p. ej. `CROSS_LEAGUE_EXPERIMENTAL`,
+ * el experimento de Europa League en OBSERVATION_ONLY) queda EXPLÍCITAMENTE excluido
+ * del hit rate/Brier/log loss/calibración domésticos (KSS-ASTRA-ADVERSARIAL-REVIEW-01
+ * C3). Legacy: ausencia del campo = `DOMESTIC`.
+ */
+export type PredictionModelMode = 'DOMESTIC' | 'CROSS_LEAGUE_EXPERIMENTAL';
 
 export interface Prediction {
   predictionId: string;
@@ -32,6 +40,23 @@ export interface Prediction {
   betAuthorized: boolean;
   betExecuted: boolean;
   isPrimary: boolean;
+  /** Opcional por compatibilidad con leads persisted legacy; ausente = `DOMESTIC`. */
+  modelMode?: PredictionModelMode;
+  /**
+   * Análisis no causal (p. ej. snapshot >= kickoff) conservado solo como diagnóstico:
+   * verdadero = excluido de TODA métrica de rendimiento. Legacy: ausente = false.
+   */
+  excludedFromPerformanceMetrics?: boolean;
+}
+
+/**
+ * Regla de elegibilidad para métricas de rendimiento (KSS-CRITICAL-INTEGRITY-FIX-01
+ * sección 9): únicamente registros primary, no excluidos y de modelMode doméstico.
+ * El filtrado temporal (pre-kickoff) y de resultado compatible lo aplica el caller
+ * (`calculatePredictionMetrics`), porque la exclusión no causal NO se corrige aquí.
+ */
+export function countsForDomesticPrediction(prediction: Prediction): boolean {
+  return prediction.isPrimary && !prediction.excludedFromPerformanceMetrics;
 }
 
 /** Identidad de contenido: excluye timestamps y tolera variaciones menores a 0,1 pp. */

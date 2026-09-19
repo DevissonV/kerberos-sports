@@ -9,7 +9,11 @@ import {
   NOTIFICATION_PORT,
   type NotificationPort,
 } from '../../notifications/ports/notificationPort';
-import { settlePrediction, type Prediction } from '../domain/prediction';
+import {
+  countsForDomesticPrediction,
+  settlePrediction,
+  type Prediction,
+} from '../domain/prediction';
 import {
   calculatePredictionMetrics,
   metricsByProbabilityBucket,
@@ -52,6 +56,7 @@ export class PredictionLedgerService {
       modelVersion: analysis.model.modelVersion,
       strategyVersion: 'KSS-V1-C01',
       predictionStage: 'PREANALYSIS',
+      modelMode: analysis.modelMode ?? 'DOMESTIC',
       betAuthorized: false,
       betExecuted: false,
     });
@@ -75,6 +80,7 @@ export class PredictionLedgerService {
       modelVersion: analysis.model.modelVersion,
       strategyVersion: 'KSS-V1-C01',
       predictionStage: analysis.decision === 'BET' ? 'BET' : 'NO_BET',
+      modelMode: 'DOMESTIC',
       oddsAtPrediction: marketSideMatchesPrediction ? analysis.side?.offeredOdds : undefined,
       fairMarketProbability: marketSideMatchesPrediction
         ? analysis.side?.fairMarketProbability
@@ -103,6 +109,7 @@ export class PredictionLedgerService {
       modelVersion: decision.model.modelVersion,
       strategyVersion: 'KSS-V1-C01',
       predictionStage: 'NO_BET',
+      modelMode: 'DOMESTIC',
       betAuthorized: false,
       betExecuted: false,
     });
@@ -193,7 +200,9 @@ export class PredictionLedgerService {
 
   snapshot() {
     const predictions = this.store.list();
-    const primary = predictions.filter((prediction) => prediction.isPrimary);
+    // C3: métricas domésticas solo con primary NO excluidos (Europa experimental
+    // CROSS_LEAGUE_EXPERIMENTAL y diagnósticos post-kickoff quedan fuera).
+    const primary = predictions.filter((prediction) => countsForDomesticPrediction(prediction));
     return {
       predictions,
       cumulative: calculatePredictionMetrics(primary),

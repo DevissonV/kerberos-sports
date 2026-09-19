@@ -7,8 +7,13 @@ import {
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { formatFixtureIdentity } from './fixtureIdentity';
 import type { RealBetsDailyStats } from '../../manual-ledger/domain/realBetsStats';
+import { countsForDomesticPrediction } from '../../prediction-ledger/domain/prediction';
 
 const percent = (value: number): string => `${(value * 100).toFixed(1)}%`;
+const percentOrNull = (value: number | null): string =>
+  value === null ? 'Sin datos' : percent(value);
+const brierOrNull = (value: number | null): string =>
+  value === null ? 'Sin datos (N=0)' : value.toFixed(4);
 const signedPercent = (value: number): string =>
   `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
 const cop = (value: number): string => `${Math.round(value).toLocaleString('es-CO')} COP`;
@@ -18,7 +23,8 @@ export function formatDailyPredictionReport(
   dayBogota: string,
   realBets?: RealBetsDailyStats,
 ): string {
-  const primary = predictions.filter((prediction) => prediction.isPrimary);
+  // C3: CROSS_LEAGUE_EXPERIMENTAL y diagnósticos excluidos del resumen doméstico.
+  const primary = predictions.filter(countsForDomesticPrediction);
   const dayPredictions = primary.filter(
     (prediction) => calendarDateInBogota(prediction.kickoffAt) === dayBogota,
   );
@@ -48,7 +54,7 @@ export function formatDailyPredictionReport(
     '',
     `✅ Acertadas: ${daily.hits}`,
     `❌ Falladas: ${daily.misses}`,
-    `🎯 Acierto: ${percent(daily.hitRate)}`,
+    `🎯 Acierto: ${percentOrNull(daily.hitRate)}`,
   ];
   if (buckets.length > 0) {
     lines.push('', '─────────────', '', '🔥 POR NIVEL DE CONFIANZA');
@@ -58,7 +64,7 @@ export function formatDailyPredictionReport(
         bucket.label,
         `${bucket.settledPredictions} predicciones`,
         `✅ ${bucket.hits} / ❌ ${bucket.misses}`,
-        `Acierto: ${percent(bucket.hitRate)}`,
+        `Acierto: ${percentOrNull(bucket.hitRate)}`,
         `⚠️ ${bucket.sampleLabel.toLowerCase()}`,
       );
   }
@@ -116,8 +122,8 @@ export function formatDailyPredictionReport(
     `Predicciones resueltas: ${cumulative.settledPredictions}`,
     `✅ ${cumulative.hits}`,
     `❌ ${cumulative.misses}`,
-    `Hit rate: ${percent(cumulative.hitRate)}`,
-    `Brier: ${cumulative.brierScore.toFixed(4)}`,
+    `Hit rate: ${percentOrNull(cumulative.hitRate)}`,
+    `Brier: ${brierOrNull(cumulative.brierScore)}`,
     '',
     `⚠️ ${sampleSizeLabel(cumulative.settledPredictions)} para sacar conclusiones firmes.`,
   );

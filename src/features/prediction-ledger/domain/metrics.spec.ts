@@ -34,6 +34,49 @@ describe('métricas de predicciones', () => {
     expect(result.brierScore).toBeCloseTo((0.4 ** 2 + 0.7 ** 2) / 2);
   });
 
+  it('E: un registro CROSS_LEAGUE_EXPERIMENTAL (Europa experimental) no contamina métricas domésticas', () => {
+    const europa = {
+      ...base,
+      predictionId: 'e1',
+      fixtureId: '99',
+      league: 'UEFA Europa League',
+      modelMode: 'CROSS_LEAGUE_EXPERIMENTAL' as const,
+      result: 'HIT' as const,
+    };
+    const result = calculatePredictionMetrics([europa]);
+    expect(result.settledPredictions).toBe(0);
+    expect(result.hits).toBe(0);
+    expect(result.misses).toBe(0);
+    expect(result.brierScore).toBeNull();
+    expect(result.logLoss).toBeNull();
+  });
+
+  it('E: un registro excluido por diagnóstico post-kickoff tampoco contamina métricas', () => {
+    const result = calculatePredictionMetrics([
+      { ...base, result: 'HIT', excludedFromPerformanceMetrics: true },
+    ]);
+    expect(result.settledPredictions).toBe(0);
+    expect(result.brierScore).toBeNull();
+  });
+
+  it('F: un registro UNKNOWN no se convierte en MISS ni se cuenta', () => {
+    const result = calculatePredictionMetrics([{ ...base, result: 'UNKNOWN' }]);
+    expect(result.settledPredictions).toBe(0);
+    expect(result.misses).toBe(0);
+    expect(result.hits).toBe(0);
+  });
+
+  it('H: con N=0 las métricas NO son estimables (null), no Brier 0 "perfecto"', () => {
+    const result = calculatePredictionMetrics([
+      { ...base, result: 'PENDING' },
+      { ...base, predictionId: '2', result: 'VOID' },
+    ]);
+    expect(result.settledPredictions).toBe(0);
+    expect(result.hitRate).toBeNull();
+    expect(result.brierScore).toBeNull();
+    expect(result.logLoss).toBeNull();
+  });
+
   it('agrupa todos los buckets y siempre expone N', () => {
     const buckets = metricsByProbabilityBucket([
       { ...base, modelProbability: 0.5499 },

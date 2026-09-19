@@ -1,5 +1,5 @@
 import type { HistoricalMatch } from './concepts';
-import { filterHistoricalWindow, isCausal, windowStart } from './historicalWindow';
+import { filterHistoricalWindow, isCausal, utcDayStart, windowStart } from './historicalWindow';
 
 const match = (date: string): HistoricalMatch => ({
   date: new Date(date),
@@ -17,11 +17,25 @@ describe('historicalWindow', () => {
     );
   });
 
+  it('utcDayStart recorta a medianoche UTC del día calendario', () => {
+    expect(utcDayStart(new Date('2026-09-19T12:34:56.000Z'))).toEqual(
+      new Date('2026-09-19T00:00:00.000Z'),
+    );
+  });
+
   it('isCausal rechaza partidos en o despues del snapshot', () => {
     const snapshotAt = new Date('2026-09-15T00:00:00.000Z');
     expect(isCausal(new Date('2026-09-14T23:59:59.000Z'), snapshotAt)).toBe(true);
     expect(isCausal(new Date('2026-09-15T00:00:00.000Z'), snapshotAt)).toBe(false);
     expect(isCausal(new Date('2026-09-16T00:00:00.000Z'), snapshotAt)).toBe(false);
+  });
+
+  it('isCausal aplica la política conservadora del mismo día (KSS-CRITICAL-INTEGRITY-FIX-01 C1)', () => {
+    // La fecha CSV (medianoche UTC) no demuestra que el RESULTADO estuviera disponible
+    // antes de un snapshot posterior del mismo día: no se inventa hora de finalización.
+    const snapshotAt = new Date('2026-09-15T12:00:00.000Z');
+    expect(isCausal(new Date('2026-09-15T00:00:00.000Z'), snapshotAt)).toBe(false);
+    expect(isCausal(new Date('2026-09-14T00:00:00.000Z'), snapshotAt)).toBe(true);
   });
 
   it('filterHistoricalWindow excluye partidos futuros (regla causal)', () => {
@@ -34,6 +48,24 @@ describe('historicalWindow', () => {
     const result = filterHistoricalWindow(matches, snapshotAt);
     expect(result).toHaveLength(1);
     expect(result[0]?.date).toEqual(new Date('2026-09-14T00:00:00.000Z'));
+  });
+
+  it('contraejemplo Astra C1: resultado del mismo día, snapshot mediodía -> NO se incluye', () => {
+    const snapshotAt = new Date('2026-09-19T12:00:00.000Z');
+    const matches: HistoricalMatch[] = [
+      {
+        date: new Date('2026-09-19T00:00:00.000Z'),
+        homeTeam: 'Arsenal',
+        awayTeam: 'Chelsea',
+        homeGoals: 3,
+        awayGoals: 0,
+        result: 'H',
+      },
+      match('2026-09-18T00:00:00.000Z'),
+    ];
+    const result = filterHistoricalWindow(matches, snapshotAt);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.date).toEqual(new Date('2026-09-18T00:00:00.000Z'));
   });
 
   it('filterHistoricalWindow excluye partidos anteriores a la ventana de 24 meses', () => {

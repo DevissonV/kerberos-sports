@@ -9,10 +9,22 @@ import {
 } from '../domain/prediction';
 import type { PredictionStore } from '../ports/predictionStore';
 
+/** Candidata de evidencia cruda del modelo para el backfill (ordenada por snapshotAt). */
+interface CausalEvidenceRow {
+  snapshotAt: Date;
+  kickoff: Date;
+  homeTeam: string;
+  awayTeam: string;
+  modelMode: string;
+  over: number;
+  under: number;
+}
+
 const COLUMNS = `predictionId, fixtureId, league, homeTeam, awayTeam, kickoffAt, createdAt,
   snapshotAt, market, selection, modelProbability, expectedGoals, modelVersion, strategyVersion,
   predictionStage, oddsAtPrediction, fairMarketProbability, edge, ev, finalScoreHome,
-  finalScoreAway, totalGoals, result, settledAt, betAuthorized, betExecuted, isPrimary`;
+  finalScoreAway, totalGoals, result, settledAt, betAuthorized, betExecuted, isPrimary,
+  modelMode, excludedFromPerformanceMetrics`;
 
 export class SqlitePredictionStore implements PredictionStore {
   private readonly db: Db;
@@ -30,7 +42,9 @@ export class SqlitePredictionStore implements PredictionStore {
         oddsAtPrediction REAL, fairMarketProbability REAL, edge REAL, ev REAL,
         finalScoreHome INTEGER, finalScoreAway INTEGER, totalGoals INTEGER,
         result TEXT NOT NULL DEFAULT 'PENDING', settledAt TEXT,
-        betAuthorized INTEGER NOT NULL, betExecuted INTEGER NOT NULL, isPrimary INTEGER NOT NULL
+        betAuthorized INTEGER NOT NULL, betExecuted INTEGER NOT NULL, isPrimary INTEGER NOT NULL,
+        modelMode TEXT NOT NULL DEFAULT 'DOMESTIC',
+        excludedFromPerformanceMetrics INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS predictions_pending_primary
         ON predictions(result, isPrimary, kickoffAt);
@@ -41,7 +55,19 @@ export class SqlitePredictionStore implements PredictionStore {
         dayBogota TEXT PRIMARY KEY, sentAt TEXT NOT NULL
       );
     `);
+    // Bases creadas por versiones anteriores: columnas de integridad C2/C3.
+    for (const column of [
+      "modelMode TEXT NOT NULL DEFAULT 'DOMESTIC'",
+      'excludedFromPerformanceMetrics INTEGER NOT NULL DEFAULT 0',
+    ]) {
+      try {
+        this.db.exec(`ALTER TABLE predictions ADD COLUMN ${column}`);
+      } catch {
+        // La columna ya existe.
+      }
+    }
     this.recoverExistingAnalyses();
+    this.demotePostKickoffPrimaries();
     this.backfillLegacyAttribution();
   }
 
@@ -50,9 +76,14 @@ export class SqlitePredictionStore implements PredictionStore {
     const existing = this.find(predictionId);
     if (existing !== null) return existing;
     const currentPrimary = this.primaryFor(input.fixtureId, input.market, input.modelVersion);
+    // Invariante duro C3 (KSS-ASTRA-ADVERSARIAL-REVIEW-01): una PRIMARY_PREDICTION solo
+    // puede existir con snapshotAt < kickoffAt (estricto: ni == ni >). Un análisis
+    // post-kickoff se conserva como diagnóstico con isPrimary=false y
+    // excludedFromPerformanceMetrics=true; nunca borra ni desplaza una primaria causal.
+    const isCausal = input.snapshotAt.getTime() < input.kickoffAt.getTime();
     const shouldReplace =
-      currentPrimary === null ||
-      (input.snapshotAt < input.kickoffAt &&
+      isCausal &&
+      (currentPrimary === null ||
         primaryPriority(input.predictionStage) > primaryPriority(currentPrimary.predictionStage));
     this.db.exec('BEGIN IMMEDIATE');
     try {
@@ -69,10 +100,12 @@ export class SqlitePredictionStore implements PredictionStore {
           (:predictionId,:fixtureId,:league,:homeTeam,:awayTeam,:kickoffAt,:createdAt,:snapshotAt,
            :market,:selection,:modelProbability,:expectedGoals,:modelVersion,:strategyVersion,
            :predictionStage,:oddsAtPrediction,:fairMarketProbability,:edge,:ev,NULL,NULL,NULL,
-           'PENDING',NULL,:betAuthorized,:betExecuted,:isPrimary)`,
+           'PENDING',NULL,:betAuthorized,:betExecuted,:isPrimary,:modelMode,:excludedFromPerformanceMetrics)`,
         )
         .run({
           ...serializeOptional(input),
+          modelMode: modelModeOf(input.modelMode),
+          excludedFromPerformanceMetrics: isCausal ? 0 : 1,
           predictionId,
           kickoffAt: input.kickoffAt.toISOString(),
           createdAt: input.createdAt.toISOString(),
@@ -168,31 +201,54 @@ export class SqlitePredictionStore implements PredictionStore {
    * desde las snapshots crudas de `model_analyses` del mismo archivo; si no hay
    * evidencia y probability < 0.50 se marca UNKNOWN (excluida de métricas). Nunca
    * inventa datos ni recalcula probabilidades.
+   *
+   * C2 (KSS-ASTRA-ADVERSARIAL-REVIEW-01): la evidencia usada por predicción debe ser
+   * estrictamente CAUSAL: `modelAnalysis.snapshotAt <= prediction.snapshotAt` y
+   * `modelAnalysis.snapshotAt < kickoffAt`, del mismo fixture (identidad de equipos) y
+   * del mismo modelMode. Nunca `latest global` ni evidencia posterior; si no hay
+   * evidencia causal no se fabrica atribución.
    */
   backfillLegacyAttribution(): { corrected: number; unknown: number } {
-    // Última snapshot cruda del modelo por fixture (más reciente antes del kickoff si
-    // hay varias; la última en la tabla es la de decisión T-6). La tabla puede no
-    // existir aún (bases nuevas): entonces no hay evidencia causal local y solo las
-    // filas con probability < 0.50 se marcan UNKNOWN.
     const hasModelAnalyses =
       this.db
         .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_analyses'")
         .get() !== undefined;
-    const evidenceByFixture = new Map<string, { over: number; under: number }>();
+    const evidenceByFixture = new Map<string, CausalEvidenceRow[]>();
     if (hasModelAnalyses) {
       for (const row of this.db
         .prepare('SELECT * FROM model_analyses ORDER BY snapshotAt')
         .all() as Record<string, unknown>[]) {
-        evidenceByFixture.set(String(row['fixtureId']), {
-          over: Number(row['probabilityOver25']),
-          under: Number(row['probabilityUnder25']),
+        const snapshotAt = new Date(String(row.snapshotAt));
+        const kickoff = new Date(String(row.kickoff));
+        if (Number.isNaN(snapshotAt.getTime()) || Number.isNaN(kickoff.getTime())) continue;
+        const fixtureId = String(row.fixtureId);
+        const rows = evidenceByFixture.get(fixtureId) ?? [];
+        rows.push({
+          snapshotAt,
+          kickoff,
+          homeTeam: String(row.homeTeam),
+          awayTeam: String(row.awayTeam),
+          modelMode: modelModeText(row.modelMode),
+          over: Number(row.probabilityOver25),
+          under: Number(row.probabilityUnder25),
         });
+        evidenceByFixture.set(fixtureId, rows);
       }
     }
     let corrected = 0;
     let unknown = 0;
     for (const pred of this.list()) {
-      const evidence = evidenceByFixture.get(pred.fixtureId);
+      const candidates = (evidenceByFixture.get(pred.fixtureId) ?? []).filter(
+        (candidate) =>
+          candidate.snapshotAt.getTime() <= pred.snapshotAt.getTime() &&
+          candidate.snapshotAt.getTime() < pred.kickoffAt.getTime() &&
+          candidate.modelMode === (pred.modelMode ?? 'DOMESTIC') &&
+          candidate.homeTeam === pred.homeTeam &&
+          candidate.awayTeam === pred.awayTeam,
+      );
+      // Ordenadas por snapshotAt ASC; la evidencia causal es la MÁS RECIENTE que no
+      // supere el snapshot de la predicción (la de decisión T-6).
+      const evidence = candidates[candidates.length - 1];
       const fix = diagnoseAttribution(
         {
           selection: pred.selection,
@@ -250,6 +306,20 @@ export class SqlitePredictionStore implements PredictionStore {
     return row === undefined ? null : deserialize(row);
   }
 
+  /**
+   * Democión idempotente de primarias post-kickoff ya persistidas por código antiguo
+   * (C3): se conservan como diagnóstico (isPrimary=0) y quedan excluidas de métricas.
+   * Los ISO strings comparten formato UTC, así que la comparación léxica es temporal.
+   */
+  private demotePostKickoffPrimaries(): number {
+    const result = this.db
+      .prepare(
+        `UPDATE predictions SET isPrimary=0, excludedFromPerformanceMetrics=1
+         WHERE isPrimary=1 AND snapshotAt >= kickoffAt`,
+      )
+      .run();
+    return Number(result.changes);
+  }
   /** Recupera únicamente evidencia real ya persistida; nunca fabrica partidos históricos. */
   private recoverExistingAnalyses(): void {
     const exists = this.db
@@ -260,6 +330,12 @@ export class SqlitePredictionStore implements PredictionStore {
       .prepare('SELECT * FROM model_analyses ORDER BY snapshotAt')
       .all() as Record<string, unknown>[];
     for (const row of rows) {
+      // Procedencia mínima (tarea sección 5): se conservan fixtureId, homeTeam,
+      // awayTeam, kickoffAt, snapshotAt, modelMode y analysisType (snapshotType ->
+      // predictionStage). Rows con timestamps ilegibles no se fabrican en predicción.
+      const kickoffAt = new Date(String(row.kickoff));
+      const snapshotAt = new Date(String(row.snapshotAt));
+      if (Number.isNaN(kickoffAt.getTime()) || Number.isNaN(snapshotAt.getTime())) continue;
       // La predicción del modelo es su probabilidad mayor; `modelSelection` en
       // snapshots antiguos podía representar el lado elegido por edge/cuota.
       const selection: Prediction['selection'] =
@@ -278,9 +354,9 @@ export class SqlitePredictionStore implements PredictionStore {
         league: String(row.league),
         homeTeam: String(row.homeTeam),
         awayTeam: String(row.awayTeam),
-        kickoffAt: new Date(String(row.kickoff)),
-        createdAt: new Date(String(row.snapshotAt)),
-        snapshotAt: new Date(String(row.snapshotAt)),
+        kickoffAt,
+        createdAt: snapshotAt,
+        snapshotAt,
         market: 'OVER_UNDER_2_5',
         selection,
         modelProbability:
@@ -295,6 +371,7 @@ export class SqlitePredictionStore implements PredictionStore {
         ev: nullableNumber(row.ev),
         betAuthorized: decision === 'BET',
         betExecuted: false,
+        modelMode: modelModeText(row.modelMode) as Prediction['modelMode'],
       });
     }
   }
@@ -305,6 +382,12 @@ function serializeOptional(input: Record<string, unknown>): Record<string, unkno
 }
 function nullableNumber(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined;
+}
+function modelModeOf(modelMode: Prediction['modelMode']): string {
+  return modelMode ?? 'DOMESTIC';
+}
+function modelModeText(value: unknown): string {
+  return typeof value === 'string' ? value : 'DOMESTIC';
 }
 function deserialize(row: Record<string, unknown>): Prediction {
   const optionalNumber = (key: string) => (row[key] === null ? undefined : Number(row[key]));
@@ -336,5 +419,7 @@ function deserialize(row: Record<string, unknown>): Prediction {
     betAuthorized: Number(row.betAuthorized) === 1,
     betExecuted: Number(row.betExecuted) === 1,
     isPrimary: Number(row.isPrimary) === 1,
+    modelMode: modelModeText(row.modelMode) as Prediction['modelMode'],
+    excludedFromPerformanceMetrics: Number(row.excludedFromPerformanceMetrics ?? 0) === 1,
   };
 }

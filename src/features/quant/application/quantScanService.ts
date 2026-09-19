@@ -90,7 +90,19 @@ export class QuantScanService {
     const bankroll = paperBankrollState(this.paperBetStore);
     const modelByFixture = new Map<string, PoissonModelOutput>();
     for (const candidate of scan.report.candidates) {
-      const model = this.modelAnalysisStore.findLatest(candidate.fixture.id, 'PREANALYSIS')?.model;
+      const stored = this.modelAnalysisStore.findLatest(candidate.fixture.id, 'PREANALYSIS');
+      // C2 (KSS-ASTRA-ADVERSARIAL-REVIEW-01): la evidencia reutilizada debe ser causal:
+      // snapshot de la PREANALYSIS posterior a `now` NO se usa (replay), snapshot >=
+      // kickoff no es una predicción pre-partido, y la identidad del fixture debe
+      // coincidir (sin remapeos silenciosos). Sin evidencia el pipeline recalcula.
+      const model =
+        stored !== null &&
+        stored.snapshotAt.getTime() <= now.getTime() &&
+        stored.snapshotAt.getTime() < candidate.fixture.kickoffAt.getTime() &&
+        stored.model.home === candidate.fixture.homeTeam &&
+        stored.model.away === candidate.fixture.awayTeam
+          ? stored.model
+          : undefined;
       if (model !== undefined) modelByFixture.set(candidate.fixture.id, model);
     }
     const result = runQuantPipeline({
