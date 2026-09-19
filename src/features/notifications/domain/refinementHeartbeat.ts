@@ -1,7 +1,7 @@
 import type { RefinementCounters } from '../../quant/ports/refinementStore';
 import type { LeagueStatus } from '../../scanning/domain/leagueUniverse';
 import { formatKickoffTimeBogota } from './formatKickoff';
-import { formatFixtureIdentity } from './fixtureIdentity';
+import { formatFixtureIdentity, formatFixtureMeta } from './fixtureIdentity';
 import type { CompetitionIdentity } from './fixtureIdentity';
 import { calendarDateInBogota } from '../../scanning/domain/todayFirst';
 import { humanizeTechnicalStatus } from './technicalStatus';
@@ -132,14 +132,21 @@ function formatRadarEntry(entry: RefinementHeartbeatRadarEntry, index?: number):
         : '👀 Preanálisis · Seguimiento activo';
   return [
     ...(index === undefined ? [] : [`${index + 1}️⃣ ${entry.home} vs ${entry.away}`]),
-    ...formatFixtureIdentity({
-      homeTeam: entry.home,
-      awayTeam: entry.away,
-      league: entry.league,
-      leagueId: entry.leagueId,
-      country: entry.country,
-      kickoffAt: entry.kickoffAt,
-    }),
+    ...(index === undefined
+      ? formatFixtureIdentity({
+          homeTeam: entry.home,
+          awayTeam: entry.away,
+          league: entry.league,
+          leagueId: entry.leagueId,
+          country: entry.country,
+          kickoffAt: entry.kickoffAt,
+        })
+      : formatFixtureMeta({
+          league: entry.league,
+          leagueId: entry.leagueId,
+          country: entry.country,
+          kickoffAt: entry.kickoffAt,
+        })),
     '',
     `${entry.marketEmoji ?? ''} ${entry.selection} · ${(entry.probability * 100).toFixed(1)}%`.trim(),
     status,

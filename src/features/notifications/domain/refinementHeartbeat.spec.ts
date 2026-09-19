@@ -149,13 +149,17 @@ describe('formatRefinementHeartbeat', () => {
       ],
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('⚽ Málaga vs Villarreal');
     expect(message).not.toContain('─────────────');
     expect(message).toContain('📅 17 Sep 2026 · 🕐 2:30 p. m.');
     expect(message).toContain('👀 Preanálisis · Seguimiento activo');
     const warningMatches = message.match(/Todavía no hay apuestas aprobadas\./g) ?? [];
     expect(warningMatches).toHaveLength(1);
     expect(message).not.toContain('NO APOSTAR TODAVÍA');
+    expect(message).toContain('1️⃣ Málaga vs Villarreal');
+    // El bloque numerado no repite el fixture con balón: una sola cabecera visual.
+    expect(message).not.toContain('⚽ Málaga vs Villarreal');
+    expect(message).toContain('🏆 Premier League');
+    expect(message).toContain('📅 17 Sep 2026 · 🕐 2:30 p. m.');
   });
 
   it('ordena varios partidos por kickoff ascendente y separa cada bloque', () => {
@@ -194,8 +198,10 @@ describe('formatRefinementHeartbeat', () => {
     const groningenIndex = message.indexOf('Groningen vs PEC Zwolle');
     expect(maligaIndex).toBeGreaterThan(-1);
     expect(groningenIndex).toBeGreaterThan(maligaIndex);
-    expect(message).toContain('⚽ Málaga vs Villarreal');
-    expect(message).toContain('⚽ Groningen vs PEC Zwolle');
+    expect(message).toContain('1️⃣ Málaga vs Villarreal');
+    expect(message).toContain('2️⃣ Groningen vs PEC Zwolle');
+    expect(message).not.toContain('⚽ Málaga vs Villarreal');
+    expect(message).not.toContain('⚽ Groningen vs PEC Zwolle');
     expect(message).toContain('─────────────');
   });
 
@@ -500,7 +506,8 @@ describe('formatRefinementHeartbeat', () => {
     });
     expect(message).toContain('🔥 PARTIDOS A SEGUIR (1/2)');
     expect(message).toContain('🔥 PARTIDOS A SEGUIR (2/2)');
-    expect(message).toContain('⚽ Local 16 vs Visitante 16');
+    expect(message).toContain('1️⃣ Local 0 vs Visitante 0');
+    expect(message).toContain('2️⃣ Local 16 vs Visitante 16');
   });
 
   it('limita el radar a un techo visual de 30 opciones', () => {
@@ -519,8 +526,8 @@ describe('formatRefinementHeartbeat', () => {
       radar: entries,
       counters: BASE_COUNTERS,
     });
-    expect(message).toContain('⚽ L29 vs V29');
-    expect(message).not.toContain('⚽ L30 vs V30');
+    expect(message).toContain('15️⃣ L29 vs V29');
+    expect(message).not.toContain('1️⃣ L30 vs V30');
   });
 
   it('destaca una apuesta aprobada sin recalcular sus datos', () => {

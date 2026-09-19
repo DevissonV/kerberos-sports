@@ -40,8 +40,18 @@ export function competitionLabel(league: string, leagueId?: number, country?: st
  * un fixture sin universo devuelve el nombre de liga crudo (nunca un torneo inventado).
  */
 export function formatFixtureIdentity(input: FixtureIdentityInput): string[] {
+  return [`⚽ ${input.homeTeam} vs ${input.awayTeam}`, ...formatFixtureMeta(input)];
+}
+
+/**
+ * Metadatos de fixture sin la línea de equipos: torneo, fecha y hora Bogotá.
+ * Usada en bloques numerados donde la cabecera `1️⃣ Equipo A vs Equipo B` ya
+ * representa al fixture y no debe repetirse con balón.
+ */
+export function formatFixtureMeta(
+  input: Omit<FixtureIdentityInput, 'homeTeam' | 'awayTeam'>,
+): string[] {
   return [
-    `⚽ ${input.homeTeam} vs ${input.awayTeam}`,
     `🏆 ${competitionLabel(input.league, input.leagueId, input.country)}`,
     ...(input.kickoffAt === undefined
       ? []
